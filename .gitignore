@@ -1,0 +1,25 @@
+# Local .terraform directories
+**/.terraform/*
+.terraform.lock.hcl
+
+# State files — contain secrets in plaintext, never commit
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Variable files with real values (commit terraform.tfvars.example instead)
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Crash / plan output
+crash.log
+crash.*.log
+*.tfplan
+
+# CLI config that may hold credentials
+.terraformrc
+terraform.rc
+
+# macOS
+.DS_Store

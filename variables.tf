@@ -1,0 +1,283 @@
+###############################################################################
+# Proxmox connection
+###############################################################################
+
+variable "proxmox_endpoint" {
+  description = "Proxmox API endpoint, e.g. https://192.168.1.10:8006"
+  type        = string
+}
+
+variable "proxmox_api_token" {
+  description = "API token 'USER@REALM!TOKENID=UUID'. Leave empty to use PROXMOX_VE_API_TOKEN env var."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "proxmox_insecure" {
+  description = "Skip TLS verification (self-signed certs)."
+  type        = bool
+  default     = true
+}
+
+variable "proxmox_ssh_username" {
+  description = "SSH user on the Proxmox node (needed to upload cloud-init snippets)."
+  type        = string
+  default     = "root"
+}
+
+variable "node_name" {
+  description = "Proxmox node to deploy on."
+  type        = string
+}
+
+variable "datastore_id" {
+  description = "Datastore for VM disks (e.g. local-lvm)."
+  type        = string
+  default     = "local-lvm"
+}
+
+variable "snippet_datastore_id" {
+  description = "Datastore with the 'snippets' content type enabled (e.g. local)."
+  type        = string
+  default     = "local"
+}
+
+###############################################################################
+# Bridges / addressing
+###############################################################################
+
+variable "wan_bridge" {
+  description = "Proxmox bridge providing internet (VyOS WAN / eth0)."
+  type        = string
+  default     = "vmbr0"
+}
+
+variable "lan_bridge" {
+  description = "VLAN-aware Proxmox bridge carrying all LAN subnets (VyOS LAN trunk / eth1, and node access ports)."
+  type        = string
+  default     = "vmbr1"
+}
+
+variable "network_prefix" {
+  description = "First two octets of the lab network. Subnets are <prefix>.<n>.0/24."
+  type        = string
+  default     = "10.1"
+}
+
+variable "subnet_mask" {
+  description = "Prefix length for each /24 subnet."
+  type        = number
+  default     = 24
+}
+
+variable "lan_supernet" {
+  description = "Supernet used for the source-NAT (masquerade) rule covering all LAN subnets."
+  type        = string
+  default     = "10.1.0.0/16"
+}
+
+variable "name_servers" {
+  description = "Upstream DNS resolvers for the router and the nodes."
+  type        = list(string)
+  default     = ["1.1.1.1", "9.9.9.9"]
+}
+
+###############################################################################
+# Templates to clone
+###############################################################################
+
+variable "vyos_template_id" {
+  description = "VMID of the VyOS template."
+  type        = number
+  default     = 9000
+}
+
+variable "ubuntu_template_id" {
+  description = "VMID of the Ubuntu template (control + services)."
+  type        = number
+  default     = 9001
+}
+
+variable "debian_template_id" {
+  description = "VMID of the Debian template (agent)."
+  type        = number
+  default     = 9002
+}
+
+###############################################################################
+# VyOS router
+###############################################################################
+
+variable "vyos_name" {
+  description = "Name/hostname of the VyOS router VM."
+  type        = string
+  default     = "v2e-vyos"
+}
+
+variable "vyos_vmid" {
+  description = "VMID for the VyOS router."
+  type        = number
+  default     = 310
+}
+
+variable "vyos_cores" {
+  type    = number
+  default = 1
+}
+
+variable "vyos_memory" {
+  type    = number
+  default = 1024
+}
+
+variable "vyos_disk_size" {
+  description = "Must match the VyOS template disk (10G)."
+  type        = number
+  default     = 10
+}
+
+variable "vyos_wan_interface" {
+  description = "Guest interface name for the WAN NIC (net0). The cloud-init-built VyOS image bakes no hw-id, so clones get clean naming: eth0."
+  type        = string
+  default     = "eth0"
+}
+
+variable "vyos_lan_interface" {
+  description = "Guest interface name for the LAN trunk NIC (net1). eth1 on the cloud-init image."
+  type        = string
+  default     = "eth1"
+}
+
+variable "router_user" {
+  description = "VyOS login user. Fixed to the cloud-init default 'vyos' — cc_vyos applies the top-level ssh_authorized_keys + password to this user. Used only for the ssh-hint output."
+  type        = string
+  default     = "vyos"
+}
+
+variable "router_password_hash" {
+  description = "PRE-HASHED (sha-512 crypt) password for the VyOS 'vyos' user, e.g. `openssl passwd -6 'yourpass'`. Empty = keep the image default (vyos/vyos console fallback). Plaintext does NOT work: VyOS cloud-init never commits, so only an already-hashed value is honored."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "wan_address" {
+  description = "VyOS WAN (eth0) address. 'dhcp' or a CIDR like '192.168.1.2/24'. A static IP is recommended so the SSH port-forward target is predictable."
+  type        = string
+  default     = "dhcp"
+}
+
+variable "wan_gateway" {
+  description = "Default gateway for a static WAN. Ignored when wan_address = 'dhcp'."
+  type        = string
+  default     = ""
+}
+
+variable "router_boot_wait" {
+  description = "How long to wait after the router VM is created before building the nodes (lets VyOS boot + apply routing). Go duration string."
+  type        = string
+  default     = "120s"
+}
+
+variable "extra_vyos_commands" {
+  description = "Extra raw 'set ...' VyOS commands appended to cloud-init."
+  type        = list(string)
+  default     = []
+}
+
+###############################################################################
+# Nodes (control / services / agent)
+###############################################################################
+
+variable "node_vmid_base" {
+  description = "Base VMID; control=base+1, services=base+2, agent=base+3."
+  type        = number
+  default     = 310
+}
+
+variable "node_host_octet" {
+  description = "Last octet for each node's static IP (e.g. 10 => 10.1.1.10, 10.1.2.10, 10.1.3.10)."
+  type        = number
+  default     = 10
+}
+
+variable "node_cores" {
+  type    = number
+  default = 2
+}
+
+variable "node_memory" {
+  type    = number
+  default = 2048
+}
+
+variable "node_disk_size" {
+  description = "Must be >= the cloud-image template disk (20G)."
+  type        = number
+  default     = 20
+}
+
+variable "cluster_user" {
+  description = "Uniform login user created on all 3 nodes. Control holds the cluster private key; members authorize the public key."
+  type        = string
+  default     = "v2e"
+}
+
+variable "cluster_password" {
+  description = "Plaintext password for the primary (v2e) user on the nodes."
+  type        = string
+  default     = "v2e"
+  sensitive   = true
+}
+
+variable "agent_user" {
+  description = "Second mesh user present on all nodes. Its hub is the agent node; it can ssh to every node."
+  type        = string
+  default     = "agent"
+}
+
+variable "agent_password" {
+  description = "Plaintext password for the agent user on the nodes."
+  type        = string
+  default     = "agent"
+  sensitive   = true
+}
+
+variable "package_upgrade" {
+  description = "Run apt upgrade on first boot of the nodes."
+  type        = bool
+  default     = true
+}
+
+variable "extra_packages" {
+  description = "Extra apt packages installed on all nodes."
+  type        = list(string)
+  default     = []
+}
+
+###############################################################################
+# Access
+###############################################################################
+
+variable "workstation_public_key" {
+  description = "Your mac's SSH public key (cat ~/.ssh/id_ed25519.pub). Authorized on the control node and VyOS."
+  type        = string
+
+  validation {
+    condition     = trimspace(var.workstation_public_key) != ""
+    error_message = "Set workstation_public_key to your mac's public key, e.g. run: cat ~/.ssh/id_ed25519.pub"
+  }
+}
+
+variable "authorize_workstation_on_all_nodes" {
+  description = "Also authorize your mac key on services + agent (not just control). Default false: reach them via control."
+  type        = bool
+  default     = false
+}
+
+variable "control_ssh_wan_port" {
+  description = "Port on the VyOS WAN that is DNAT-forwarded to the control node's SSH (22)."
+  type        = number
+  default     = 2201
+}

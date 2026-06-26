@@ -1,0 +1,78 @@
+#cloud-config
+# Ubuntu/Debian node. Networking comes from Proxmox ip_config; this file owns
+# the mesh users, their SSH trust keys, and packages.
+# node_users = list of { name, password, authorized_keys[], is_hub, private_key, ssh_targets[] }
+
+hostname: ${hostname}
+fqdn: ${hostname}
+manage_etc_hosts: true
+preserve_hostname: false
+
+users:
+  - default
+%{ for u in node_users ~}
+  - name: ${u.name}
+    groups: [sudo]
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    shell: /bin/bash
+    lock_passwd: false
+    ssh_authorized_keys:
+%{ for key in u.authorized_keys ~}
+      - ${key}
+%{ endfor ~}
+%{ endfor ~}
+
+chpasswd:
+  expire: false
+  users:
+%{ for u in node_users ~}
+    - name: ${u.name}
+      password: ${u.password}
+      type: text
+%{ endfor ~}
+
+ssh_pwauth: true
+%{ if has_hub }
+write_files:
+%{ for u in node_users ~}
+%{ if u.is_hub ~}
+  # ${u.name}: this node is the mesh hub — install its private key + ssh client config.
+  - path: /home/${u.name}/.ssh/id_ed25519
+    owner: '${u.name}:${u.name}'
+    permissions: '0600'
+    defer: true
+    content: |
+      ${indent(6, u.private_key)}
+  - path: /home/${u.name}/.ssh/config
+    owner: '${u.name}:${u.name}'
+    permissions: '0600'
+    defer: true
+    content: |
+%{ for t in u.ssh_targets ~}
+      Host ${t.alias}
+          HostName ${t.host}
+          User ${t.user}
+          IdentityFile ~/.ssh/id_ed25519
+          IdentitiesOnly yes
+          StrictHostKeyChecking accept-new
+%{ endfor ~}
+%{ endif ~}
+%{ endfor ~}
+%{ endif ~}
+
+package_update: true
+package_upgrade: ${package_upgrade}
+packages:
+  - qemu-guest-agent
+%{ for pkg in extra_packages ~}
+  - ${pkg}
+%{ endfor ~}
+
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+%{ for u in node_users ~}
+%{ if u.is_hub ~}
+  - [ chown, -R, "${u.name}:${u.name}", /home/${u.name}/.ssh ]
+  - [ chmod, "700", /home/${u.name}/.ssh ]
+%{ endif ~}
+%{ endfor ~}

@@ -1,0 +1,61 @@
+#cloud-config
+# VyOS 1.4/1.5 router-on-a-stick. Applied on first boot via NoCloud.
+#
+# LOGIN (SSH keys + password) is set with STANDARD top-level cloud-config keys below,
+# NOT via vyos_config_commands. Reason: VyOS cloud-init's vyos_userdata module writes
+# config.boot offline with NO commit, so 'set system login ... plaintext-password /
+# public-keys' is never hashed/activated (no /etc/shadow entry, no authorized_keys).
+# The separate 'vyos' module DOES apply top-level ssh_authorized_keys + a PRE-HASHED
+# password to the default 'vyos' user correctly. (VyOS T2310; verified in cc_vyos.py.)
+#
+# net0 (vmbr0) -> ${wan_iface} = WAN ; net1 (vmbr1 trunk) -> ${lan_iface} = LAN VLANs.
+
+%{ if password_hash != "" ~}
+password: ${password_hash}
+%{ endif ~}
+%{ if length(admin_keys) > 0 ~}
+ssh_authorized_keys:
+%{ for key in admin_keys ~}
+  - ${key}
+%{ endfor ~}
+%{ endif ~}
+
+vyos_config_commands:
+  # ---- System ----
+  - set system host-name '${hostname}'
+%{ for ns in name_servers ~}
+  - set system name-server '${ns}'
+%{ endfor ~}
+  - set service ssh port '22'
+
+  # ---- WAN (${wan_iface}) ----
+  - set interfaces ethernet ${wan_iface} description 'WAN'
+  - set interfaces ethernet ${wan_iface} address '${wan_address}'
+%{ if wan_address != "dhcp" && wan_gateway != "" ~}
+  - set protocols static route 0.0.0.0/0 next-hop '${wan_gateway}'
+%{ endif ~}
+
+  # ---- LAN (${lan_iface}) tagged VLAN sub-interfaces — one gateway per subnet ----
+%{ for v in vlans ~}
+  - set interfaces ethernet ${lan_iface} vif ${v.id} description '${v.name}'
+  - set interfaces ethernet ${lan_iface} vif ${v.id} address '${v.gateway_cidr}'
+%{ endfor ~}
+
+  # ---- Source NAT: masquerade all LAN subnets out the WAN ----
+  - set nat source rule 100 outbound-interface name '${wan_iface}'
+  - set nat source rule 100 source address '${lan_supernet}'
+  - set nat source rule 100 translation address 'masquerade'
+
+  # ---- Destination NAT: forward WAN port(s) to internal hosts ----
+%{ for f in port_forwards ~}
+  - set nat destination rule ${f.rule} description '${f.description}'
+  - set nat destination rule ${f.rule} inbound-interface name '${wan_iface}'
+  - set nat destination rule ${f.rule} protocol '${f.protocol}'
+  - set nat destination rule ${f.rule} destination port '${f.wan_port}'
+  - set nat destination rule ${f.rule} translation address '${f.lan_address}'
+  - set nat destination rule ${f.rule} translation port '${f.lan_port}'
+%{ endfor ~}
+
+%{ for cmd in extra_config_commands ~}
+  - ${cmd}
+%{ endfor ~}

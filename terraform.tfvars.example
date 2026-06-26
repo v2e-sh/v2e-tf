@@ -1,0 +1,61 @@
+# Copy to terraform.tfvars and edit. terraform.tfvars is gitignored.
+
+# ---- Proxmox connection ----
+proxmox_endpoint     = "https://192.168.1.10:8006"
+proxmox_api_token    = "terraform@pve!tf=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+proxmox_insecure     = true
+proxmox_ssh_username = "root"
+node_name            = "pve"
+datastore_id         = "local-lvm"
+snippet_datastore_id = "local"
+
+# ---- Bridges ----
+wan_bridge = "vmbr0"   # internet from the host
+lan_bridge = "vmbr1"   # MUST be VLAN-aware (see README)
+
+# ---- Templates (built earlier) ----
+vyos_template_id   = 9000
+ubuntu_template_id = 9001
+debian_template_id = 9002
+
+# ---- VyOS WAN ----
+# Static is recommended so the SSH port-forward target is predictable.
+# ADJUST to a free address + gateway on your host LAN (pve is 192.168.1.10).
+wan_address = "192.168.1.2/24"
+wan_gateway = "192.168.1.1"
+# Or, to take whatever the host hands out:
+# wan_address = "dhcp"
+# wan_gateway = ""
+
+# ---- Access ----
+# Your mac's public key — authorized on control + VyOS. REQUIRED.
+workstation_public_key = "ssh-ed25519 AAAA...replace-me... you@mac"
+
+# Reach control from the mac:  ssh -p 2201 v2e@192.168.1.2
+control_ssh_wan_port = 2201
+
+# Set true to also put your mac key on services + agent (default: reach them via control).
+authorize_workstation_on_all_nodes = false
+
+# ---- Logins ----
+# primary admin mesh (hub = control): v2e@control reaches v2e@services, v2e@agent
+cluster_user     = "v2e"
+cluster_password = "ChangeMe123!"
+# second admin mesh (hub = agent): agent@agent reaches agent@control, agent@services
+agent_user       = "agent"
+agent_password   = "ChangeMe123!"
+# VyOS login
+router_password = "ChangeMe123!"
+
+# ---- Sizing (optional overrides) ----
+# vyos_memory   = 1024
+# node_memory   = 2048
+# node_disk_size = 20
+
+# Give VyOS longer to boot+route on a slow host before the nodes come up.
+router_boot_wait = "120s"
+
+# Extra raw VyOS commands, e.g. a DNS forwarder or time zone:
+extra_vyos_commands = [
+  # "set system time-zone 'Europe/Amsterdam'",
+]
