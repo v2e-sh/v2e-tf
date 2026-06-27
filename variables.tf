@@ -323,3 +323,34 @@ variable "tunnel_dns_name" {
   type        = string
   default     = "lab"
 }
+
+###############################################################################
+# Ansible bootstrap (control node only)
+# On by default: the control node (mesh hub) clones the repo on first boot and
+# runs the playbook against the whole mesh over its existing v2e SSH trust.
+# Set ansible_repo_url = "" to disable — apply is then unchanged.
+###############################################################################
+
+variable "ansible_repo_url" {
+  description = "Public git URL of the Ansible repo cloned + run on control at first boot. Blank = bootstrap disabled."
+  type        = string
+  default     = "https://github.com/v2e-sh/v2e-ansible"
+}
+
+variable "ansible_repo_ref" {
+  description = "Branch or tag to clone from ansible_repo_url."
+  type        = string
+  default     = "main"
+}
+
+variable "ansible_playbook" {
+  description = "Playbook to run, relative to the repo root."
+  type        = string
+  default     = "site.yml"
+}
+
+variable "ansible_inventory" {
+  description = "Inventory file to use, relative to the repo root. Hosts should be reachable from control as the v2e user (use the ssh aliases services/agent, or their IPs)."
+  type        = string
+  default     = "inventory.ini"
+}

@@ -12,6 +12,15 @@ locals {
     # Cloudflare tunnel connector token — only the control node gets it, and only
     # when the tunnel is enabled. "" renders the cloud-init identically to before.
     cloudflared_token = (local.cloudflare_enabled && k == "control") ? one(data.cloudflare_zero_trust_tunnel_cloudflared_token.ssh[*].token) : ""
+    # Ansible bootstrap — only the control node clones the repo and runs the
+    # playbook against the mesh. "" disables the block (cloud-init unchanged).
+    ansible_repo_url  = k == "control" ? var.ansible_repo_url : ""
+    ansible_repo_ref  = var.ansible_repo_ref
+    ansible_playbook  = var.ansible_playbook
+    ansible_inventory = var.ansible_inventory
+    # The mesh hub user on this node (owns the SSH key/config); "" if none.
+    # Ansible runs as this user so it reuses the existing mesh SSH trust.
+    ansible_user = join("", [for u in local.node_users[k] : u.name if u.is_hub])
   }) }
 }
 

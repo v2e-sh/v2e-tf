@@ -74,3 +74,13 @@ cloudflare_zone_id    = ""
 tunnel_hostname = "lab.v2e.sh"
 tunnel_dns_name = "lab"
 # tunnel_name   = "v2e-control-ssh"
+
+# ---- Ansible bootstrap ----
+# ON by default: control (mesh hub) clones the PUBLIC repo on first boot and runs
+# the playbook against the whole mesh over its existing v2e SSH trust. Inventory
+# hosts must be reachable from control as v2e — use the ssh aliases (services,
+# agent) or their IPs. Set ansible_repo_url = "" to disable.
+ansible_repo_url  = "https://github.com/v2e-sh/v2e-ansible"
+ansible_repo_ref  = "main"
+ansible_playbook  = "site.yml"
+ansible_inventory = "inventory.ini"

@@ -80,6 +80,10 @@ packages:
 %{ if cloudflared_token != "" ~}
   - cloudflared
 %{ endif ~}
+%{ if ansible_repo_url != "" ~}
+  - ansible
+  - git
+%{ endif ~}
 %{ for pkg in extra_packages ~}
   - ${pkg}
 %{ endfor ~}
@@ -99,4 +103,14 @@ runcmd:
   # embeds the token, hence chmod 600. Omitted when token is "" (CF disabled).
   - cloudflared service install ${cloudflared_token}
   - chmod 600 /etc/systemd/system/cloudflared.service
+%{ endif ~}
+%{ if ansible_repo_url != "" ~}
+  # Ansible bootstrap (control = mesh hub). Clone the playbook repo and run it
+  # against the whole mesh AS the hub user (${ansible_user}), which owns the mesh
+  # SSH key + ~/.ssh/config written above — so no extra credentials are needed.
+  # `wait_for_connection` blocks until services/agent are reachable (the nodes
+  # boot in parallel with control), so the play doesn't fail on a host that
+  # isn't up yet. Host-key checking is off because targets are first-seen on
+  # first boot. Failures are non-fatal to boot; see /var/log/cloud-init-output.log.
+  - su - ${ansible_user} -c 'export ANSIBLE_HOST_KEY_CHECKING=False && git clone --branch ${ansible_repo_ref} ${ansible_repo_url} ~/ansible && cd ~/ansible && ansible all -i ${ansible_inventory} -m wait_for_connection -a timeout=300 && ansible-playbook -i ${ansible_inventory} ${ansible_playbook}'
 %{ endif ~}
