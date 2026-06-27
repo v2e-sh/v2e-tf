@@ -21,6 +21,9 @@ locals {
     # The bootstrap runs as the dedicated ansible account (a hub user on control),
     # so it reuses that mesh's SSH key/config to reach every node + the router.
     ansible_user = var.ansible_user
+    # Ansible Vault password — seeded only on control (the bootstrap runner) and
+    # only when set; written to /home/<ansible_user>/.vault_pass. "" = not seeded.
+    ansible_vault_password = k == "control" ? var.ansible_vault_password : ""
   }) }
 }
 

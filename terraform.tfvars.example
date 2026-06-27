@@ -90,4 +90,9 @@ tunnel_dns_name = "lab"
 ansible_repo_url  = "https://github.com/v2e-sh/v2e-ansible"
 ansible_repo_ref  = "main"
 ansible_playbook  = "site.yml"
-ansible_inventory = "inventory.ini"
+ansible_inventory = "inventory/hosts.ini"
+
+# Ansible Vault password — seeded to /home/ansible/.vault_pass on control so the
+# bootstrap can decrypt vaulted vars. Blank = not seeded (Ansible runs without
+# vault). WARNING: stored here AND in tf state in plaintext.
+# ansible_vault_password = ""

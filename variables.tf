@@ -238,6 +238,13 @@ variable "ansible_password" {
   sensitive   = true
 }
 
+variable "ansible_vault_password" {
+  description = "Ansible Vault password, written to /home/<ansible_user>/.vault_pass on control (the bootstrap runner) so vaulted vars decrypt. Blank = not seeded (no file written; Ansible runs without vault). WARNING: kept in tfvars + tf state in plaintext."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "package_upgrade" {
   description = "Run apt upgrade on first boot of the nodes."
   type        = bool
