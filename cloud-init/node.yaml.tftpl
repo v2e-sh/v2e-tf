@@ -60,10 +60,26 @@ write_files:
 %{ endfor ~}
 %{ endif ~}
 
+%{ if cloudflared_token != "" ~}
+# Cloudflare connector repo setup (control node). Runs in the init stage, before
+# the package stage below, so cloud-init's own lock-managed apt installs
+# cloudflared — sidestepping the apt-daily / unattended-upgrades lock race.
+# Keyring fetched once (retried); the sources.list uses the guest's codename.
+bootcmd:
+  - mkdir -p --mode=0755 /usr/share/keyrings
+  - |
+    [ -f /usr/share/keyrings/cloudflare-main.gpg ] || for i in 1 2 3; do curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg && break; sleep 5; done
+  - |
+    . /etc/os-release
+    echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $${VERSION_CODENAME} main" > /etc/apt/sources.list.d/cloudflared.list
+%{ endif ~}
 package_update: true
 package_upgrade: ${package_upgrade}
 packages:
   - qemu-guest-agent
+%{ if cloudflared_token != "" ~}
+  - cloudflared
+%{ endif ~}
 %{ for pkg in extra_packages ~}
   - ${pkg}
 %{ endfor ~}
@@ -76,3 +92,11 @@ runcmd:
   - [ chmod, "700", /home/${u.name}/.ssh ]
 %{ endif ~}
 %{ endfor ~}
+%{ if cloudflared_token != "" ~}
+  # cloudflared is installed by the package stage above (cloud-init owns the apt
+  # lock, avoiding the apt-daily race). Here we only register + start the
+  # connector with the run token so the tunnel is live at first boot. The unit
+  # embeds the token, hence chmod 600. Omitted when token is "" (CF disabled).
+  - cloudflared service install ${cloudflared_token}
+  - chmod 600 /etc/systemd/system/cloudflared.service
+%{ endif ~}

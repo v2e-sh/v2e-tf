@@ -41,3 +41,19 @@ output "agent_public_key" {
   description = "Public key for the agent mesh (private key lives on the agent node)."
   value       = local.meshes["agent"].public
 }
+
+output "cloudflare_tunnel_id" {
+  description = "ID of the Cloudflare tunnel fronting control's SSH (null when disabled)."
+  value       = one(cloudflare_zero_trust_tunnel_cloudflared.ssh[*].id)
+}
+
+output "cloudflared_tunnel_token" {
+  description = "Connector run token (for Ansible / debugging; already injected into control's cloud-init)."
+  value       = local.cloudflare_enabled ? one(data.cloudflare_zero_trust_tunnel_cloudflared_token.ssh[*].token) : null
+  sensitive   = true
+}
+
+output "ssh_to_control_via_tunnel" {
+  description = "Reach control via the Cloudflare tunnel (needs cloudflared + 'ProxyCommand cloudflared access ssh' on the mac)."
+  value       = local.cloudflare_enabled ? "ssh ${var.cluster_user}@${var.tunnel_hostname}" : "cloudflare tunnel disabled — set cloudflare_api_token + account/zone IDs to enable"
+}
