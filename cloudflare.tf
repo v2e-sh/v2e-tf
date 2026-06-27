@@ -40,9 +40,12 @@ check "cloudflare_vars_consistent" {
 }
 
 provider "cloudflare" {
-  # Empty when disabled — harmless, the provider is only configured if a resource
-  # below actually needs it (all count = 0 when disabled).
-  api_token = var.cloudflare_api_token
+  # The provider config is validated at PLAN time even when every CF resource is
+  # count = 0, and api_token is rejected unless it is 40 chars of [A-Za-z0-9_-].
+  # So when the feature is disabled we feed a 40-char placeholder: it passes
+  # validation but is never used (nothing configures the provider while all
+  # resources are count = 0, so no API call is ever made with it).
+  api_token = var.cloudflare_api_token != "" ? var.cloudflare_api_token : "0000000000000000000000000000000000000000"
 }
 
 # --- The remote-managed tunnel ---------------------------------------------
