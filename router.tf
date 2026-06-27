@@ -7,12 +7,16 @@ locals {
     hostname      = var.vyos_name
     name_servers  = var.name_servers
     password_hash = var.router_password_hash
-    # Authorized via top-level ssh_authorized_keys (the cc_vyos module applies these to
-    # the default 'vyos' user): your mac key + the v2e mesh key, so the control node
-    # (which holds the v2e private key) can `ssh vyos@10.1.1.1` by key.
+    # Bootstrap reachability for Ansible. cc_vyos authorizes these on the default
+    # 'vyos' user: your mac key + the v2e mesh key + the ansible mesh key. So the
+    # router comes up reachable as `vyos@10.1.1.1` by key (from control, by either
+    # mesh) and over the WAN (from your mac). Phase-2 Ansible logs in here and
+    # owns the rest of the router config — including creating the v2e/ansible
+    # login users and retiring 'vyos'. Terraform does NOT do that config.
     admin_keys = compact([
       trimspace(var.workstation_public_key),
       local.meshes["primary"].public,
+      local.meshes["ansible"].public,
     ])
     wan_address  = var.wan_address
     wan_gateway  = var.wan_gateway
