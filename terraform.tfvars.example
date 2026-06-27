@@ -38,14 +38,21 @@ control_ssh_wan_port = 2201
 authorize_workstation_on_all_nodes = false
 
 # ---- Logins ----
-# primary admin mesh (hub = control): v2e@control reaches v2e@services, v2e@agent
+# primary admin mesh (hub = control): v2e@control reaches services, agent, vyos
 cluster_user     = "v2e"
 cluster_password = "ChangeMe123!"
-# second admin mesh (hub = agent): agent@agent reaches agent@control, agent@services
-agent_user       = "agent"
-agent_password   = "ChangeMe123!"
-# VyOS login
-router_password = "ChangeMe123!"
+# automation mesh (hub = control): ansible@control reaches every node + the router.
+# Login is key-based; this is just a console/break-glass password.
+ansible_user     = "ansible"
+ansible_password = "ChangeMe123!"
+
+# ---- VyOS router login ----
+# The router comes up with the default 'vyos' user, authorized for your mac key +
+# both mesh keys, so Ansible can SSH in (vyos@10.1.1.1) and take over router
+# config — including provisioning dedicated router users. OPTIONAL: a sha-512
+# console password for that bootstrap user (else image default vyos/vyos):
+#   openssl passwd -6 'yourpass'
+# router_password_hash = "$6$..."
 
 # ---- Sizing (optional overrides) ----
 # vyos_memory   = 1024

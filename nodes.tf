@@ -18,9 +18,9 @@ locals {
     ansible_repo_ref  = var.ansible_repo_ref
     ansible_playbook  = var.ansible_playbook
     ansible_inventory = var.ansible_inventory
-    # The mesh hub user on this node (owns the SSH key/config); "" if none.
-    # Ansible runs as this user so it reuses the existing mesh SSH trust.
-    ansible_user = join("", [for u in local.node_users[k] : u.name if u.is_hub])
+    # The bootstrap runs as the dedicated ansible account (a hub user on control),
+    # so it reuses that mesh's SSH key/config to reach every node + the router.
+    ansible_user = var.ansible_user
   }) }
 }
 

@@ -106,11 +106,14 @@ runcmd:
 %{ endif ~}
 %{ if ansible_repo_url != "" ~}
   # Ansible bootstrap (control = mesh hub). Clone the playbook repo and run it
-  # against the whole mesh AS the hub user (${ansible_user}), which owns the mesh
-  # SSH key + ~/.ssh/config written above — so no extra credentials are needed.
-  # `wait_for_connection` blocks until services/agent are reachable (the nodes
-  # boot in parallel with control), so the play doesn't fail on a host that
-  # isn't up yet. Host-key checking is off because targets are first-seen on
-  # first boot. Failures are non-fatal to boot; see /var/log/cloud-init-output.log.
-  - su - ${ansible_user} -c 'export ANSIBLE_HOST_KEY_CHECKING=False && git clone --branch ${ansible_repo_ref} ${ansible_repo_url} ~/ansible && cd ~/ansible && ansible all -i ${ansible_inventory} -m wait_for_connection -a timeout=300 && ansible-playbook -i ${ansible_inventory} ${ansible_playbook}'
+  # against the whole mesh AS the ansible user (${ansible_user}), which owns the
+  # mesh SSH key + ~/.ssh/config written above — so no extra credentials needed.
+  # `wait_for_connection` blocks until the Linux nodes are reachable (they boot in
+  # parallel with control), so the play doesn't fail on a host that isn't up yet.
+  # vyos is EXCLUDED from the wait (all:!vyos): its 'vyos' login is the VyOS CLI,
+  # not a python-capable shell, so wait_for_connection can't probe it — the
+  # playbook still targets it (via a network_cli group in the inventory).
+  # Host-key checking is off because targets are first-seen on first boot.
+  # Failures are non-fatal to boot; see /var/log/cloud-init-output.log.
+  - su - ${ansible_user} -c 'export ANSIBLE_HOST_KEY_CHECKING=False && git clone --branch ${ansible_repo_ref} ${ansible_repo_url} ~/ansible && cd ~/ansible && ansible all:\!vyos -i ${ansible_inventory} -m wait_for_connection -a timeout=300 && ansible-playbook -i ${ansible_inventory} ${ansible_playbook}'
 %{ endif ~}

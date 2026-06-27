@@ -63,6 +63,12 @@ locals {
   # SSH trust meshes. Each mesh = a login user that exists on EVERY node, with a
   # single keypair: the hub node holds the private key and can ssh to the rest;
   # every node authorizes the public key for that user.
+  #
+  # - primary (v2e): the human admin login. Hub = control; mac key authorized here.
+  # - ansible: the dedicated automation account. Hub = control; reaches every node
+  #   AND the VyOS router, with NOPASSWD sudo (granted to all mesh users below).
+  #   Phase-2 Ansible runs from here; it provisions any further app users (e.g. the
+  #   old 'agent' account) itself, so they are no longer created by Terraform.
   meshes = {
     primary = {
       user              = var.cluster_user # v2e
@@ -71,16 +77,25 @@ locals {
       public            = trimspace(tls_private_key.primary.public_key_openssh)
       private           = tls_private_key.primary.private_key_openssh
       allow_workstation = true # your mac key is authorized for this user on the hub
+      reaches_vyos      = true # v2e key is also authorized on the router (router.tf)
     }
-    agent = {
-      user              = var.agent_user # agent
-      hub               = "agent"
-      password          = var.agent_password
-      public            = trimspace(tls_private_key.agent.public_key_openssh)
-      private           = tls_private_key.agent.private_key_openssh
+    ansible = {
+      user              = var.ansible_user # ansible — automation account
+      hub               = "control"
+      password          = var.ansible_password
+      public            = trimspace(tls_private_key.ansible.public_key_openssh)
+      private           = tls_private_key.ansible.private_key_openssh
       allow_workstation = false
+      reaches_vyos      = true # ansible key authorized on the router (router.tf)
     }
   }
+
+  # The router comes up with only the default VyOS login user ('vyos'), authorized
+  # for both mesh keys (see admin_keys in router.tf). Both meshes therefore reach
+  # it as `vyos@<control-subnet-gateway>` (e.g. vyos@10.1.1.1) — the bootstrap
+  # path Ansible uses before it provisions dedicated router users of its own.
+  vyos_host             = local.node_gateway["control"]
+  router_bootstrap_user = "vyos"
 
   # Per-node user list rendered into cloud-init.
   node_users = { for k, n in local.nodes : k => [
@@ -93,7 +108,10 @@ locals {
       ))
       is_hub      = m.hub == k
       private_key = m.hub == k ? m.private : ""
-      ssh_targets = m.hub == k ? [for tk, tn in local.nodes : { alias = tk, host = local.node_ip[tk], user = m.user } if tk != k] : []
+      ssh_targets = m.hub == k ? concat(
+        [for tk, tn in local.nodes : { alias = tk, host = local.node_ip[tk], user = m.user } if tk != k],
+        m.reaches_vyos ? [{ alias = "vyos", host = local.vyos_host, user = local.router_bootstrap_user }] : [],
+      ) : []
     }
   ] }
 

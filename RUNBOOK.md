@@ -31,9 +31,9 @@ node_name              = "pve"
 workstation_public_key = "ssh-ed25519 AAAA... user@email.me"   # cat ~/.ssh/id_ed25519.pub
 wan_address            = "192.168.1.2/24"
 wan_gateway            = "192.168.1.1"
-cluster_password       = "ChangeMe123!"     # v2e user on the nodes
-agent_password         = "ChangeMe123!"     # agent user on the nodes
-# router_password_hash = "$6$..."           # OPTIONAL custom router console pw (else vyos/vyos)
+cluster_password       = "ChangeMe123!"     # v2e (admin) user on the nodes
+ansible_password       = "ChangeMe123!"     # ansible (automation) user on the nodes
+# router_password_hash = "$6$..."           # OPTIONAL console pw for the router's bootstrap vyos user
 ```
 
 ## 2. Deploy
@@ -53,16 +53,20 @@ VMs are recreated each apply, so clear stale host keys first:
 ssh-keygen -R 192.168.1.2 ; ssh-keygen -R "[192.168.1.2]:2201"
 ```
 ```bash
-ssh vyos@192.168.1.2            # router, by key (console fallback: vyos/vyos)
-ssh -p 2201 v2e@192.168.1.2     # control, by key (DNAT)
-# from control — the v2e mesh:
+ssh vyos@192.168.1.2           # router, by key (bootstrap user; Ansible takes over later)
+ssh -p 2201 v2e@192.168.1.2    # control, by key (DNAT)
+# from control — the v2e (admin) mesh:
 v2e@control:~$ ssh services
 v2e@control:~$ ssh agent
-v2e@control:~$ ssh vyos@10.1.1.1     # manage the router by key
-# the agent mesh (hub = agent node):
-v2e@agent:~$ sudo -iu agent
-agent@agent:~$ ssh control ; ssh services
+v2e@control:~$ ssh vyos              # manage the router by key (=> vyos@10.1.1.1)
+# from control — the ansible (automation) mesh, hub = control:
+v2e@control:~$ sudo -iu ansible
+ansible@control:~$ ssh services ; ssh agent ; ssh vyos   # (=> vyos@10.1.1.1)
 ```
+> The router comes up with only the default `vyos` user, authorized for your mac
+> key + both mesh keys. That's the bootstrap login phase-2 Ansible uses to take
+> over router config (e.g. dedicated v2e/ansible router users). Terraform stops
+> at making the router Ansible-reachable.
 `tofu output` prints all of these.
 
 ## 4. Day-2

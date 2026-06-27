@@ -24,10 +24,17 @@ with three nodes behind it. Built with Terraform + cloud-init.
 - **Access:** your mac key is authorized on **`v2e@control`**; VyOS DNATs
   `WAN:2201 -> control:22`, so `ssh -p 2201 v2e@<vyos-wan>`.
 - **Two trust meshes** (each = a user on every node + one ed25519 keypair whose
-  private key lives only on the hub node):
-  - **`v2e`** — hub **control** → `ssh services` / `ssh agent` reaches `v2e@…`.
-  - **`agent`** — hub **agent node** → from `agent@agent`: `ssh control` /
-    `ssh services` reaches `agent@…`. Reach it via `sudo -iu agent` on the agent node.
+  private key lives only on the hub node — **control** for both):
+  - **`v2e`** — the human admin login. From control: `ssh services` / `ssh agent`
+    reaches `v2e@…`, and `ssh vyos` reaches the router.
+  - **`ansible`** — the dedicated automation account (NOPASSWD sudo). From control
+    it reaches every node *and* the router; phase-2 Ansible runs as this user and
+    provisions any further system config — app users (e.g. the old `agent`
+    account) and the router's own login users — so those are not created by Terraform.
+- **Router login.** Terraform makes the router *Ansible-reachable* only: it comes up
+  with the VyOS default **`vyos`** user, authorized for your mac key + both mesh
+  keys, so control reaches it as `vyos@10.1.1.1` by key. Provisioning dedicated
+  router users is left to phase-2 Ansible.
 - **Internet:** VyOS masquerades `10.1.0.0/16` out eth0; inter-VLAN routing is
   on by default (no firewall), so control reaches the others directly.
 

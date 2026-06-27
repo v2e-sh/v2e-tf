@@ -149,14 +149,8 @@ variable "vyos_lan_interface" {
   default     = "eth1"
 }
 
-variable "router_user" {
-  description = "VyOS login user. Fixed to the cloud-init default 'vyos' — cc_vyos applies the top-level ssh_authorized_keys + password to this user. Used only for the ssh-hint output."
-  type        = string
-  default     = "vyos"
-}
-
 variable "router_password_hash" {
-  description = "PRE-HASHED (sha-512 crypt) password for the VyOS 'vyos' user, e.g. `openssl passwd -6 'yourpass'`. Empty = keep the image default (vyos/vyos console fallback). Plaintext does NOT work: VyOS cloud-init never commits, so only an already-hashed value is honored."
+  description = "PRE-HASHED (sha-512 crypt) console password for the VyOS bootstrap 'vyos' user, e.g. `openssl passwd -6 'yourpass'`. Empty = key-only (console fallback is the image default vyos/vyos). Plaintext does NOT work: cc_vyos honors only an already-hashed value. Phase-2 Ansible takes over router login config from here."
   type        = string
   default     = ""
   sensitive   = true
@@ -231,16 +225,16 @@ variable "cluster_password" {
   sensitive   = true
 }
 
-variable "agent_user" {
-  description = "Second mesh user present on all nodes. Its hub is the agent node; it can ssh to every node."
+variable "ansible_user" {
+  description = "Dedicated automation account present on all nodes. Hub = control; reaches every node + the VyOS router with NOPASSWD sudo. Phase-2 Ansible authenticates and runs as this user."
   type        = string
-  default     = "agent"
+  default     = "ansible"
 }
 
-variable "agent_password" {
-  description = "Plaintext password for the agent user on the nodes."
+variable "ansible_password" {
+  description = "Plaintext console/break-glass password for the ansible user (login is key-based; revoke access by removing keys from authorized_keys)."
   type        = string
-  default     = "agent"
+  default     = "ansible"
   sensitive   = true
 }
 

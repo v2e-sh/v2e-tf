@@ -13,8 +13,8 @@ output "node_addresses" {
 }
 
 output "ssh_to_vyos" {
-  description = "Manage the router directly (mac is on the WAN segment)."
-  value       = "ssh ${var.router_user}@${local.wan_ip}"
+  description = "Manage the router directly (mac is on the WAN segment). Bootstrap user is the VyOS default 'vyos'; phase-2 Ansible provisions dedicated router users."
+  value       = "ssh ${local.router_bootstrap_user}@${local.wan_ip}"
 }
 
 output "ssh_to_control" {
@@ -23,13 +23,19 @@ output "ssh_to_control" {
 }
 
 output "mesh_v2e" {
-  description = "Primary mesh: the primary user on control reaches all nodes."
-  value       = [for tk, tn in local.nodes : "ssh ${tk}  (=> ${var.cluster_user}@${local.node_ip[tk]})" if tk != "control"]
+  description = "Primary mesh: the v2e user on control reaches every node, plus the router as the bootstrap vyos user."
+  value = concat(
+    [for tk, tn in local.nodes : "ssh ${tk}  (=> ${var.cluster_user}@${local.node_ip[tk]})" if tk != "control"],
+    ["ssh vyos  (=> ${local.router_bootstrap_user}@${local.node_gateway["control"]})"],
+  )
 }
 
-output "mesh_agent" {
-  description = "Agent mesh: the agent user on the agent node reaches all nodes."
-  value       = [for tk, tn in local.nodes : "ssh ${tk}  (=> ${var.agent_user}@${local.node_ip[tk]})" if tk != "agent"]
+output "mesh_ansible" {
+  description = "Ansible mesh: the ansible user on control reaches every node, plus the router as the bootstrap vyos user."
+  value = concat(
+    [for tk, tn in local.nodes : "ssh ${tk}  (=> ${var.ansible_user}@${local.node_ip[tk]})" if tk != "control"],
+    ["ssh vyos  (=> ${local.router_bootstrap_user}@${local.node_gateway["control"]})"],
+  )
 }
 
 output "primary_public_key" {
@@ -37,9 +43,9 @@ output "primary_public_key" {
   value       = local.meshes["primary"].public
 }
 
-output "agent_public_key" {
-  description = "Public key for the agent mesh (private key lives on the agent node)."
-  value       = local.meshes["agent"].public
+output "ansible_public_key" {
+  description = "Public key for the ansible mesh (private key lives on control)."
+  value       = local.meshes["ansible"].public
 }
 
 output "cloudflare_tunnel_id" {
