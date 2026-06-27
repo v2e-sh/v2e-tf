@@ -219,10 +219,15 @@ variable "cluster_user" {
 }
 
 variable "cluster_password" {
-  description = "Plaintext password for the primary (v2e) user on the nodes."
+  description = "Console break-glass password for the primary (v2e) user. SSH password login is OFF, so this is console-only. Blank = account locked (key-only, no console password)."
   type        = string
-  default     = "v2e"
+  default     = ""
   sensitive   = true
+
+  validation {
+    condition     = !contains(["v2e", "ansible", "password", "changeme", "changeme123!"], lower(var.cluster_password))
+    error_message = "cluster_password is a known weak/default value. Use a strong password, or leave it blank to lock the account (key-only)."
+  }
 }
 
 variable "ansible_user" {
@@ -232,10 +237,15 @@ variable "ansible_user" {
 }
 
 variable "ansible_password" {
-  description = "Plaintext console/break-glass password for the ansible user (login is key-based; revoke access by removing keys from authorized_keys)."
+  description = "Console break-glass password for the ansible user. Login is key-based and SSH password login is OFF, so this is console-only. Blank = account locked (key-only)."
   type        = string
-  default     = "ansible"
+  default     = ""
   sensitive   = true
+
+  validation {
+    condition     = !contains(["v2e", "ansible", "password", "changeme", "changeme123!"], lower(var.ansible_password))
+    error_message = "ansible_password is a known weak/default value. Use a strong password, or leave it blank to lock the account (key-only)."
+  }
 }
 
 variable "ansible_vault_password" {

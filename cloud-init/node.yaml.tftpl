@@ -13,25 +13,31 @@ users:
 %{ for u in node_users ~}
   - name: ${u.name}
     groups: [sudo]
-    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    sudo: "ALL=(ALL) ${u.nopasswd ? "NOPASSWD:ALL" : "ALL"}"
     shell: /bin/bash
-    lock_passwd: false
+    lock_passwd: ${u.password == ""}
     ssh_authorized_keys:
 %{ for key in u.authorized_keys ~}
       - ${key}
 %{ endfor ~}
 %{ endfor ~}
 
+%{ if anytrue([for u in node_users : u.password != ""]) ~}
 chpasswd:
   expire: false
   users:
 %{ for u in node_users ~}
+%{ if u.password != "" ~}
     - name: ${u.name}
       password: ${u.password}
       type: text
+%{ endif ~}
 %{ endfor ~}
+%{ endif ~}
 
-ssh_pwauth: true
+# Key-only SSH. Password auth is OFF; the chpasswd password above is console-only
+# break-glass (via the Proxmox console), never usable over the network.
+ssh_pwauth: false
 %{ if has_hub }
 write_files:
 %{ for u in node_users ~}
