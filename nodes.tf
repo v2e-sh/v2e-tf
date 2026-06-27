@@ -9,6 +9,9 @@ locals {
     has_hub         = local.node_has_hub[k]
     package_upgrade = var.package_upgrade
     extra_packages  = var.extra_packages
+    # Cloudflare tunnel connector token — only the control node gets it, and only
+    # when the tunnel is enabled. "" renders the cloud-init identically to before.
+    cloudflared_token = (local.cloudflare_enabled && k == "control") ? one(data.cloudflare_zero_trust_tunnel_cloudflared_token.ssh[*].token) : ""
   }) }
 }
 

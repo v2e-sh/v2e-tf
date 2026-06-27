@@ -59,3 +59,18 @@ router_boot_wait = "120s"
 extra_vyos_commands = [
   # "set system time-zone 'Europe/Amsterdam'",
 ]
+
+# ---- Cloudflare tunnel (OPTIONAL) ----
+# Leave these three BLANK to skip Cloudflare entirely; the rest of the lab
+# deploys unchanged. Set ALL THREE to bring up a key-auth SSH tunnel to control
+# (cloudflared installed on control at first boot). Zero Trust / OTP is added
+# later via Ansible, not here. Requires the domain already on Cloudflare.
+# Token scopes: Account>Cloudflare Tunnel:Edit, Zone>DNS:Edit, Zone>Zone:Read.
+cloudflare_api_token  = "" # blank = tunnel disabled
+cloudflare_account_id = ""
+cloudflare_zone_id    = ""
+
+# Hostname routed to control's sshd (defaults shown; override for your domain).
+tunnel_hostname = "lab.v2e.sh"
+tunnel_dns_name = "lab"
+# tunnel_name   = "v2e-control-ssh"

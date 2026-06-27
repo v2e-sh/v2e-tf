@@ -281,3 +281,45 @@ variable "control_ssh_wan_port" {
   type        = number
   default     = 2201
 }
+
+###############################################################################
+# Cloudflare tunnel (optional SSH path to control; see cloudflare.tf)
+# Leave the three creds BLANK to disable the whole feature — apply is unchanged.
+###############################################################################
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token. Scopes: Account > Cloudflare Tunnel:Edit, Zone > DNS:Edit, Zone > Zone:Read. Blank = tunnel disabled."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID (dash: Manage Account > Account ID). Blank = tunnel disabled."
+  type        = string
+  default     = ""
+}
+
+variable "cloudflare_zone_id" {
+  description = "Zone ID for the domain hosting tunnel_hostname, e.g. v2e.sh (dash: zone Overview > API). Blank = tunnel disabled."
+  type        = string
+  default     = ""
+}
+
+variable "tunnel_name" {
+  description = "Name of the Cloudflare tunnel (shown in the Zero Trust dashboard)."
+  type        = string
+  default     = "v2e-control-ssh"
+}
+
+variable "tunnel_hostname" {
+  description = "Public hostname routed through the tunnel to control's sshd."
+  type        = string
+  default     = "lab.v2e.sh"
+}
+
+variable "tunnel_dns_name" {
+  description = "DNS record label for the proxied CNAME (the subdomain part of tunnel_hostname)."
+  type        = string
+  default     = "lab"
+}
