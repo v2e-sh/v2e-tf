@@ -65,6 +65,13 @@ extra_vyos_commands = [
   # "set system time-zone 'Europe/Amsterdam'",
 ]
 
+# ---- Firewall ----
+# Default-deny boundary applied when the router is built (set false to disable).
+# firewall_enabled = true
+# CIDRs allowed to SSH the ROUTER itself over the WAN. Empty = none (reach the
+# router via control). Does not affect the control DNAT (WAN:2201 -> control:22).
+trusted_mgmt_sources = [] # e.g. ["203.0.113.5/32"]
+
 # ---- Cloudflare tunnel (OPTIONAL) ----
 # Leave these three BLANK to skip Cloudflare entirely; the rest of the lab
 # deploys unchanged. Set ALL THREE to bring up a key-auth SSH tunnel to control

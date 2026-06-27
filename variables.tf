@@ -180,6 +180,18 @@ variable "extra_vyos_commands" {
   default     = []
 }
 
+variable "firewall_enabled" {
+  description = "Apply the VyOS default-deny firewall (WAN/inter-VLAN/agent isolation) when the router is built."
+  type        = bool
+  default     = true
+}
+
+variable "trusted_mgmt_sources" {
+  description = "CIDRs allowed to SSH the router itself over the WAN, e.g. [\"203.0.113.5/32\"]. Empty = no WAN SSH to the router (manage it via control). Does not affect the control DNAT."
+  type        = list(string)
+  default     = []
+}
+
 ###############################################################################
 # Nodes (control / services / agent)
 ###############################################################################
