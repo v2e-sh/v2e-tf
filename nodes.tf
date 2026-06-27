@@ -47,8 +47,11 @@ resource "proxmox_virtual_environment_vm" "node" {
   node_name = var.node_name
   tags      = ["v2e-v3", each.value.role, "terraform"]
 
+  # Guest agent on: adds the virtio guest-agent channel so qemu-guest-agent runs
+  # (clean shutdown + IP reporting). NOTE: tofu apply now waits for the agent to
+  # report per node during create.
   agent {
-    enabled = false
+    enabled = true
   }
 
   clone {
