@@ -1,5 +1,6 @@
 # Advisory reminder only — does NOT enable encryption. Encryption is opt-in via
-# the TF_ENCRYPTION env var (see RUNBOOK.md section 1b). This detects whether
+# the TF_ENCRYPTION env var (see https://github.com/v2e-sh/v2e-docs/blob/main/RUNBOOK.md
+# — Step 3). This detects whether
 # TF_ENCRYPTION is set and, if not, emits a WARNING that state is plaintext.
 # The check never fails the run.
 
@@ -11,6 +12,6 @@ data "external" "encryption_state" {
 check "state_encryption" {
   assert {
     condition     = data.external.encryption_state.result.enabled == "true"
-    error_message = "State encryption is OFF — terraform.tfstate is plaintext and holds secrets (mesh SSH keys, Proxmox/Cloudflare tokens, ansible password). Enable it via TF_ENCRYPTION; see RUNBOOK.md section 1b. (Reminder only — not a failure.)"
+    error_message = "State encryption is OFF — terraform.tfstate is plaintext and holds secrets (mesh SSH keys, Proxmox/Cloudflare tokens, ansible password). Enable it via TF_ENCRYPTION; see https://github.com/v2e-sh/v2e-docs/blob/main/RUNBOOK.md (Step 3). (Reminder only — not a failure.)"
   }
 }
