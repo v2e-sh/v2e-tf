@@ -344,7 +344,7 @@ variable "ansible_playbook" {
 }
 
 variable "ansible_inventory" {
-  description = "Inventory file to use, relative to the repo root. Hosts should be reachable from control as the v2e user (use the ssh aliases services/agent, or their IPs)."
+  description = "Inventory file to use, relative to the repo root. Hosts must be reachable from control as the ansible automation user (control = local, services via direct SSH as ansible)."
   type        = string
-  default     = "inventory.ini"
+  default     = "inventory/hosts.ini"
 }
