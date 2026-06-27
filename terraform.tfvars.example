@@ -40,7 +40,7 @@ authorize_workstation_on_all_nodes = false
 # ---- Logins ----
 # primary admin mesh (hub = control): v2e@control reaches services, agent, vyos
 cluster_user     = "v2e"
-cluster_password = ""
+sudo_password    = ""
 # automation mesh (hub = control): ansible@control reaches every node + the router.
 ansible_user     = "ansible"
 

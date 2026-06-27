@@ -218,14 +218,14 @@ variable "cluster_user" {
   default     = "v2e"
 }
 
-variable "cluster_password" {
+variable "sudo_password" {
   description = "Required sudo password for the primary (v2e) user. SSH is key-only; sudo uses this password."
   type        = string
   sensitive   = true
 
   validation {
-    condition     = length(trimspace(var.cluster_password)) > 0 && !contains(["v2e", "ansible", "password", "changeme", "changeme123!"], lower(trimspace(var.cluster_password)))
-    error_message = "cluster_password is required and must not be a known-weak value (v2e/ansible/password/changeme)."
+    condition     = length(trimspace(var.sudo_password)) > 0 && !contains(["v2e", "ansible", "password", "changeme", "changeme123!"], lower(trimspace(var.sudo_password)))
+    error_message = "sudo_password is required and must not be a known-weak value (v2e/ansible/password/changeme)."
   }
 }
 

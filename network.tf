@@ -73,7 +73,7 @@ locals {
     primary = {
       user              = var.cluster_user # v2e
       hub               = "control"
-      password          = var.cluster_password
+      password          = var.sudo_password
       public            = trimspace(tls_private_key.primary.public_key_openssh)
       private           = tls_private_key.primary.private_key_openssh
       allow_workstation = true # your mac key is authorized for this user on the hub
