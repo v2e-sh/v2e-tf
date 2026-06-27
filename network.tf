@@ -78,19 +78,17 @@ locals {
       private           = tls_private_key.primary.private_key_openssh
       allow_workstation = true # your mac key is authorized for this user on the hub
       reaches_vyos      = true # v2e key is also authorized on the router (router.tf)
-      # Human admin: drop the sudo password prompt only when no console password
-      # exists (key-only). Set a strong cluster_password and sudo then prompts.
-      passwordless_sudo = var.cluster_password == ""
+      passwordless_sudo = false
     }
     ansible = {
       user              = var.ansible_user # ansible — automation account
       hub               = "control"
-      password          = var.ansible_password
+      password          = ""
       public            = trimspace(tls_private_key.ansible.public_key_openssh)
       private           = tls_private_key.ansible.private_key_openssh
       allow_workstation = false
       reaches_vyos      = true # ansible key authorized on the router (router.tf)
-      passwordless_sudo = true # automation runs unattended; needs NOPASSWD root
+      passwordless_sudo = true
     }
   }
 

@@ -35,14 +35,19 @@ chpasswd:
 %{ endfor ~}
 %{ endif ~}
 
-# Key-only SSH. Password auth is OFF; the chpasswd password above is console-only
-# break-glass (via the Proxmox console), never usable over the network.
 ssh_pwauth: false
-%{ if has_hub }
+disable_root: true
 write_files:
+  - path: /etc/ssh/sshd_config.d/60-v2e.conf
+    permissions: '0644'
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      AllowUsers ${ssh_allow_users}
+%{ if has_hub ~}
 %{ for u in node_users ~}
 %{ if u.is_hub ~}
-  # ${u.name}: this node is the mesh hub — install its private key + ssh client config.
   - path: /home/${u.name}/.ssh/id_ed25519
     owner: '${u.name}:${u.name}'
     permissions: '0600'
@@ -64,6 +69,7 @@ write_files:
 %{ endfor ~}
 %{ endif ~}
 %{ endfor ~}
+%{ endif ~}
 %{ if ansible_vault_password != "" ~}
   # Ansible Vault password for the ${ansible_user} account (control runs the
   # playbooks). Wired via ANSIBLE_VAULT_PASSWORD_FILE in the bootstrap + the
@@ -80,7 +86,6 @@ write_files:
     content: |
       # Auto-export the Ansible Vault password file for interactive shells that own it.
       [ -f "$HOME/.vault_pass" ] && export ANSIBLE_VAULT_PASSWORD_FILE="$HOME/.vault_pass"
-%{ endif ~}
 %{ endif ~}
 
 %{ if cloudflared_token != "" ~}
@@ -116,6 +121,7 @@ packages:
 
 runcmd:
   - systemctl enable --now qemu-guest-agent
+  - systemctl restart ssh
 %{ for u in node_users ~}
 %{ if u.is_hub ~}
   - [ chown, -R, "${u.name}:${u.name}", /home/${u.name}/.ssh ]

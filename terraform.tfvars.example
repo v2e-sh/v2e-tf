@@ -1,16 +1,4 @@
 # Copy to terraform.tfvars and edit. terraform.tfvars is gitignored.
-#
-# EXAMPLE ADDRESSING — every 192.168.1.x below is a PLACEHOLDER for your own
-# host/management LAN (the network the Proxmox host + your workstation sit on,
-# which is also the VyOS WAN side). Replace them with your real values:
-#
-#   192.168.1.0/24   your host/management LAN
-#   192.168.1.1      that LAN's gateway to the internet     -> wan_gateway
-#   192.168.1.10     the Proxmox host (pve) API + SSH       -> proxmox_endpoint
-#   192.168.1.2      the VyOS WAN address you assign on it  -> wan_address
-#
-# The lab's INTERNAL subnets are separate, parameterized by network_prefix
-# (default 10.1.x.x), and normally need no change here.
 
 # ---- Proxmox connection ----
 proxmox_endpoint     = "https://192.168.1.10:8006"
@@ -50,17 +38,11 @@ control_ssh_wan_port = 2201
 authorize_workstation_on_all_nodes = false
 
 # ---- Logins ----
-# SSH password login is OFF (key-only). The two *_password values are console
-# break-glass only: blank = account locked (no console password); set a STRONG
-# value for break-glass. Known-weak values (v2e / ansible / ChangeMe123!) are
-# rejected by validation. When cluster_password is set, the v2e user must also
-# enter it for sudo; blank keeps sudo passwordless (key-only admin).
 # primary admin mesh (hub = control): v2e@control reaches services, agent, vyos
 cluster_user     = "v2e"
 cluster_password = ""
 # automation mesh (hub = control): ansible@control reaches every node + the router.
 ansible_user     = "ansible"
-ansible_password = ""
 
 # ---- VyOS router login ----
 # The router comes up with the default 'vyos' user, authorized for your mac key +

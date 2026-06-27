@@ -219,33 +219,20 @@ variable "cluster_user" {
 }
 
 variable "cluster_password" {
-  description = "Console break-glass password for the primary (v2e) user. SSH password login is OFF, so this is console-only. Blank = account locked (key-only, no console password)."
+  description = "Required sudo password for the primary (v2e) user. SSH is key-only; sudo uses this password."
   type        = string
-  default     = ""
   sensitive   = true
 
   validation {
-    condition     = !contains(["v2e", "ansible", "password", "changeme", "changeme123!"], lower(var.cluster_password))
-    error_message = "cluster_password is a known weak/default value. Use a strong password, or leave it blank to lock the account (key-only)."
+    condition     = length(trimspace(var.cluster_password)) > 0 && !contains(["v2e", "ansible", "password", "changeme", "changeme123!"], lower(trimspace(var.cluster_password)))
+    error_message = "cluster_password is required and must not be a known-weak value (v2e/ansible/password/changeme)."
   }
 }
 
 variable "ansible_user" {
-  description = "Dedicated automation account present on all nodes. Hub = control; reaches every node + the VyOS router with NOPASSWD sudo. Phase-2 Ansible authenticates and runs as this user."
+  description = "Dedicated automation account present on all nodes. Hub = control; reaches every node + the VyOS router with NOPASSWD sudo. No password (locked); used only by Ansible and via 'sudo su'. Phase-2 Ansible authenticates and runs as this user."
   type        = string
   default     = "ansible"
-}
-
-variable "ansible_password" {
-  description = "Console break-glass password for the ansible user. Login is key-based and SSH password login is OFF, so this is console-only. Blank = account locked (key-only)."
-  type        = string
-  default     = ""
-  sensitive   = true
-
-  validation {
-    condition     = !contains(["v2e", "ansible", "password", "changeme", "changeme123!"], lower(var.ansible_password))
-    error_message = "ansible_password is a known weak/default value. Use a strong password, or leave it blank to lock the account (key-only)."
-  }
 }
 
 variable "ansible_vault_password" {
