@@ -80,8 +80,8 @@ terraform apply
 ```bash
 terraform output                       # all the ssh hints
 
-ssh v2e@192.168.1.2                      # manage VyOS directly (mac is on WAN)
-ssh -p 2201 v2e@192.168.1.2             # -> control node
+ssh v2e@<vyos-wan>                      # manage VyOS directly (mac is on WAN)
+ssh -p 2201 v2e@<vyos-wan>             # -> control node
 # then, from control:
 ssh services
 ssh agent
