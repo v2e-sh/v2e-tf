@@ -36,6 +36,63 @@ ansible_password       = "ChangeMe123!"     # ansible (automation) user on the n
 # router_password_hash = "$6$..."           # OPTIONAL console pw for the router's bootstrap vyos user
 ```
 
+## 1b. Optional: encrypt OpenTofu state (opt-in)
+
+State is plaintext by default and holds secrets (both mesh SSH private keys, the
+Proxmox API token, the Cloudflare token, the `ansible` password). Encryption is
+**opt-in via the `TF_ENCRYPTION` env var** — nothing lives in the repo and there's
+no mandatory passphrase. Set the env var (from Keychain) to turn it on; omit it to
+run plaintext.
+
+> ⚠️ Once you migrate the on-disk state to encrypted, you must export
+> `TF_ENCRYPTION` for **every** tofu command (init/plan/apply/state/output). Lose
+> the passphrase → state is **unrecoverable**. Back it up in your password manager.
+
+**One-time: stash a passphrase (≥16 chars) in Keychain, and back it up**
+```bash
+security add-generic-password -a "$USER" -s tofu-v2e-state -w "$(openssl rand -base64 32)"
+security find-generic-password -a "$USER" -s tofu-v2e-state -w   # copy into your password manager NOW
+```
+
+**Normal use — enable for the shell, then run tofu** (drop into a shell function or guarded direnv `.envrc`):
+```bash
+export TF_ENCRYPTION="$(cat <<EOF
+key_provider "pbkdf2" "main" { passphrase = "$(security find-generic-password -a "$USER" -s tofu-v2e-state -w)" }
+method "aes_gcm" "main" { keys = key_provider.pbkdf2.main }
+state { method = method.aes_gcm.main }
+plan  { method = method.aes_gcm.main }
+EOF
+)"
+tofu plan
+```
+
+**One-time migration of the existing plaintext state** (adds an `unencrypted`
+fallback so the first read can load the current plaintext, then rewrites encrypted):
+```bash
+cp terraform.tfstate terraform.tfstate.preencrypt.bak     # safety copy
+export TF_ENCRYPTION="$(cat <<EOF
+key_provider "pbkdf2" "main" { passphrase = "$(security find-generic-password -a "$USER" -s tofu-v2e-state -w)" }
+method "aes_gcm" "main" { keys = key_provider.pbkdf2.main }
+method "unencrypted" "migrate" {}
+state { method = method.aes_gcm.main
+        fallback { method = method.unencrypted.migrate } }
+plan  { method = method.aes_gcm.main
+        fallback { method = method.unencrypted.migrate } }
+EOF
+)"
+tofu apply                                   # rewrites state ENCRYPTED
+head -c 120 terraform.tfstate                # confirm: encryption metadata, NOT readable attrs
+# re-export the NORMAL form above (no migrate method / no fallback), then:
+tofu plan                                    # confirms it reads encrypted, zero drift
+rm -P terraform.tfstate.backup terraform.tfstate.preencrypt.bak   # shred plaintext leftovers (rm -P = overwrite on macOS)
+```
+
+Gotchas:
+- `TF_ENCRYPTION` must be set for **every** command after migration (`init` included).
+- **Don't rename** the `pbkdf2 "main"` / `aes_gcm "main"` labels — ciphertext stores metadata keyed to them.
+- `terraform.tfstate.backup` stays **plaintext** after migration → shred it (above).
+- To revert to plaintext: re-add the `unencrypted` fallback, `tofu apply`, then drop `TF_ENCRYPTION`.
+
 ## 2. Deploy
 
 ```bash
