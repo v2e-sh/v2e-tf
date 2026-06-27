@@ -75,14 +75,17 @@ bootcmd:
 %{ endif ~}
 package_update: true
 package_upgrade: ${package_upgrade}
+# Reboot after the first-boot upgrade only if a new kernel/libc requires it.
+# This runs before runcmd, so the Ansible bootstrap sees a patched system.
+package_reboot_if_required: true
 packages:
   - qemu-guest-agent
 %{ if cloudflared_token != "" ~}
   - cloudflared
 %{ endif ~}
 %{ if ansible_repo_url != "" ~}
-  - ansible
   - git
+  - pipx
 %{ endif ~}
 %{ for pkg in extra_packages ~}
   - ${pkg}
@@ -105,15 +108,20 @@ runcmd:
   - chmod 600 /etc/systemd/system/cloudflared.service
 %{ endif ~}
 %{ if ansible_repo_url != "" ~}
-  # Ansible bootstrap (control = mesh hub). Clone the playbook repo and run it
-  # against the whole mesh AS the ansible user (${ansible_user}), which owns the
-  # mesh SSH key + ~/.ssh/config written above — so no extra credentials needed.
-  # `wait_for_connection` blocks until the Linux nodes are reachable (they boot in
-  # parallel with control), so the play doesn't fail on a host that isn't up yet.
-  # vyos is EXCLUDED from the wait (all:!vyos): its 'vyos' login is the VyOS CLI,
-  # not a python-capable shell, so wait_for_connection can't probe it — the
-  # playbook still targets it (via a network_cli group in the inventory).
-  # Host-key checking is off because targets are first-seen on first boot.
-  # Failures are non-fatal to boot; see /var/log/cloud-init-output.log.
-  - su - ${ansible_user} -c 'export ANSIBLE_HOST_KEY_CHECKING=False && git clone --branch ${ansible_repo_ref} ${ansible_repo_url} ~/ansible && cd ~/ansible && ansible all:\!vyos -i ${ansible_inventory} -m wait_for_connection -a timeout=300 && ansible-playbook -i ${ansible_inventory} ${ansible_playbook}'
+  # Ansible bootstrap (control = mesh hub). Install Ansible for the ${ansible_user}
+  # user via pipx (full bundle incl. community collections, user-isolated under
+  # ~/.local). We export ~/.local/bin onto PATH explicitly — the default ~/.profile
+  # is not a reliable way to do so under `su - -c`. Then clone the playbook repo,
+  # wait for the Linux nodes (vyos EXCLUDED via all:!vyos — its 'vyos' login is the
+  # VyOS CLI, not a python shell), and run the playbook. The OS is already patched
+  # by the package stage above, so Ansible runs on an up-to-date system.
+  # Host-key checking is off (targets first-seen on first boot). Non-fatal to boot;
+  # see /var/log/cloud-init-output.log.
+  # pipx (and ansible) live in Ubuntu's 'universe' component; standard cloud
+  # images enable it. Defensive fallback for minimal images that don't.
+  - sh -c 'command -v pipx >/dev/null 2>&1 || { add-apt-repository -y universe || true; apt-get update || true; apt-get install -y pipx; }'
+  - su - ${ansible_user} -c 'export PATH="$HOME/.local/bin:$PATH" && pipx install --include-deps ansible && pipx ensurepath'
+  # Idempotent clone (re-runs don't abort); wait_for_connection is best-effort
+  # (a slow/absent member must not stop the playbook running on reachable hosts).
+  - su - ${ansible_user} -c 'export PATH="$HOME/.local/bin:$PATH" && export ANSIBLE_HOST_KEY_CHECKING=False && { [ -d ~/ansible/.git ] || git clone --branch ${ansible_repo_ref} ${ansible_repo_url} ~/ansible; } && cd ~/ansible && { ansible all:!vyos -i ${ansible_inventory} -m wait_for_connection -a timeout=300 || true; } && ansible-playbook -i ${ansible_inventory} ${ansible_playbook}'
 %{ endif ~}
