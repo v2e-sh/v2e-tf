@@ -1,6 +1,6 @@
 # Local .terraform directories
 **/.terraform/*
-.terraform.lock.hcl
+# .terraform.lock.hcl is committed on purpose (pinned provider versions)
 
 # State files — contain secrets in plaintext, never commit
 *.tfstate

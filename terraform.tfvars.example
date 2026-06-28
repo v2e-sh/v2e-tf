@@ -93,9 +93,10 @@ tunnel_dns_name = "lab"
 # hosts must be reachable from control as v2e — use the ssh aliases (services,
 # agent) or their IPs. Set ansible_repo_url = "" to disable.
 ansible_repo_url  = "https://github.com/v2e-sh/v2e-ansible"
-ansible_repo_ref  = "main"
+ansible_repo_ref  = "608af5ff8e0dbc4c0fc871f50663bab08dbb255a" # pin to a commit/tag; bump on new releases
 ansible_playbook  = "site.yml"
 ansible_inventory = "inventory/hosts.ini"
+# ansible_version = "11.1.0"  # pin the pipx Ansible on control (empty = latest)
 
 # Ansible Vault password — seeded to /home/ansible/.vault_pass on control so the
 # bootstrap can decrypt vaulted vars. Blank = not seeded (Ansible runs without

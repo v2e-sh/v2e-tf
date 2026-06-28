@@ -17,6 +17,7 @@ locals {
     # playbook against the mesh. "" disables the block (cloud-init unchanged).
     ansible_repo_url  = k == "control" ? var.ansible_repo_url : ""
     ansible_repo_ref  = var.ansible_repo_ref
+    ansible_version   = var.ansible_version
     ansible_playbook  = var.ansible_playbook
     ansible_inventory = var.ansible_inventory
     # The bootstrap runs as the dedicated ansible account (a hub user on control),

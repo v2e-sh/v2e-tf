@@ -348,9 +348,15 @@ variable "ansible_repo_url" {
 }
 
 variable "ansible_repo_ref" {
-  description = "Branch or tag to clone from ansible_repo_url."
+  description = "Branch, tag, or commit to clone from ansible_repo_url. Pinned to a commit for a reproducible first boot; bump it when you cut a new Ansible release."
   type        = string
-  default     = "main"
+  default     = "608af5ff8e0dbc4c0fc871f50663bab08dbb255a"
+}
+
+variable "ansible_version" {
+  description = "Pin the pipx-installed Ansible on control, e.g. \"11.1.0\". Empty = latest at first boot (not reproducible)."
+  type        = string
+  default     = ""
 }
 
 variable "ansible_playbook" {
