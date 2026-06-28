@@ -61,7 +61,7 @@ resource "proxmox_virtual_environment_vm" "vyos" {
   name      = var.vyos_name
   vm_id     = var.vyos_vmid
   node_name = var.node_name
-  tags      = ["v2e-v3", "vyos", "router", "terraform"]
+  tags      = sort([local.tag_project, "vyos", local.vyos_host, "terraform"])
 
   # Hard-stop (not graceful shutdown) on destroy — consistent teardown for all VMs.
   stop_on_destroy = true

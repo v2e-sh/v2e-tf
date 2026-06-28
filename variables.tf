@@ -113,6 +113,12 @@ variable "debian_template_id" {
   default     = 9002
 }
 
+variable "parrot_template_id" {
+  description = "VMID of the ParrotOS Home template (control workstation)."
+  type        = number
+  default     = 9003
+}
+
 ###############################################################################
 # VyOS router
 ###############################################################################
@@ -120,7 +126,7 @@ variable "debian_template_id" {
 variable "vyos_name" {
   description = "Name/hostname of the VyOS router VM."
   type        = string
-  default     = "v2e-vyos"
+  default     = "router"
 }
 
 variable "vyos_vmid" {
@@ -224,6 +230,24 @@ variable "node_disk_size" {
   description = "Must be >= the cloud-image template disk (20G)."
   type        = number
   default     = 20
+}
+
+variable "control_cores" {
+  description = "vCPU cores for the control node (ParrotOS workstation)."
+  type        = number
+  default     = 4
+}
+
+variable "control_memory" {
+  description = "Memory (MB) for the control node (ParrotOS workstation)."
+  type        = number
+  default     = 8192
+}
+
+variable "control_disk_size" {
+  description = "Disk size (GB) for the control node. Must be >= the ParrotOS template disk."
+  type        = number
+  default     = 64
 }
 
 variable "cluster_user" {

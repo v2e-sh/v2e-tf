@@ -34,10 +34,15 @@ locals {
   nodes = {
     control = {
       vm_id       = var.node_vmid_base + 1
-      template_id = var.ubuntu_template_id
+      template_id = var.parrot_template_id
       octet       = 1
       vlan        = 101
       role        = "control"
+      os          = "parrot"
+      cores       = var.control_cores
+      memory      = var.control_memory
+      disk_size   = var.control_disk_size
+      bios        = "ovmf"
     }
     services = {
       vm_id       = var.node_vmid_base + 2
@@ -45,6 +50,11 @@ locals {
       octet       = 2
       vlan        = 102
       role        = "member"
+      os          = "ubuntu"
+      cores       = var.node_cores
+      memory      = var.node_memory
+      disk_size   = var.node_disk_size
+      bios        = "seabios"
     }
     agent = {
       vm_id       = var.node_vmid_base + 3
@@ -52,6 +62,11 @@ locals {
       octet       = 3
       vlan        = 103
       role        = "member"
+      os          = "debian"
+      cores       = var.node_cores
+      memory      = var.node_memory
+      disk_size   = var.node_disk_size
+      bios        = "seabios"
     }
   }
 
@@ -59,6 +74,8 @@ locals {
   node_ip_cidr = { for k, n in local.nodes : k => "${local.node_ip[k]}/${var.subnet_mask}" }
   node_gateway = { for k, n in local.nodes : k => "${var.network_prefix}.${n.octet}.1" }
   control_ip   = local.node_ip["control"]
+
+  tag_project = "v2e"
 
   # SSH trust meshes. Each mesh = a login user that exists on EVERY node, with a
   # single keypair: the hub node holds the private key and can ssh to the rest;
