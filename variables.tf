@@ -334,6 +334,12 @@ variable "tunnel_dns_name" {
   default     = "lab"
 }
 
+variable "cloudflare_access_emails" {
+  description = "Emails allowed through a Cloudflare Access (one-time PIN) gate in front of tunnel_hostname. Empty = no Access gate (tunnel is key-only SSH). Requires the Cloudflare tunnel vars to be set."
+  type        = list(string)
+  default     = []
+}
+
 ###############################################################################
 # Ansible bootstrap (control node only)
 # On by default: the control node (mesh hub) clones the repo on first boot and
