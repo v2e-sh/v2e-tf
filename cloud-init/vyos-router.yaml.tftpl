@@ -56,6 +56,56 @@ vyos_config_commands:
   - set nat destination rule ${f.rule} translation port '${f.lan_port}'
 %{ endfor ~}
 
+%{ if firewall_enabled ~}
+  # ---- Firewall: default-deny isolation boundary ----
+  - set firewall global-options state-policy established action 'accept'
+  - set firewall global-options state-policy related action 'accept'
+  - set firewall global-options state-policy invalid action 'drop'
+  # input — traffic to the router itself
+  - set firewall ipv4 input filter default-action 'drop'
+  - set firewall ipv4 input filter rule 5 inbound-interface name 'lo'
+  - set firewall ipv4 input filter rule 5 action 'accept'
+  - set firewall ipv4 input filter rule 10 description 'control -> router SSH'
+  - set firewall ipv4 input filter rule 10 inbound-interface name '${lan_iface}.${control_vlan}'
+  - set firewall ipv4 input filter rule 10 protocol 'tcp'
+  - set firewall ipv4 input filter rule 10 destination port '22'
+  - set firewall ipv4 input filter rule 10 action 'accept'
+  - set firewall ipv4 input filter rule 20 description 'ICMP to router'
+  - set firewall ipv4 input filter rule 20 protocol 'icmp'
+  - set firewall ipv4 input filter rule 20 action 'accept'
+%{ if length(trusted_mgmt_sources) > 0 ~}
+%{ for src in trusted_mgmt_sources ~}
+  - set firewall group network-group TRUSTED-MGMT network '${src}'
+%{ endfor ~}
+  - set firewall ipv4 input filter rule 30 description 'trusted WAN -> router SSH'
+  - set firewall ipv4 input filter rule 30 inbound-interface name '${wan_iface}'
+  - set firewall ipv4 input filter rule 30 protocol 'tcp'
+  - set firewall ipv4 input filter rule 30 destination port '22'
+  - set firewall ipv4 input filter rule 30 source group network-group 'TRUSTED-MGMT'
+  - set firewall ipv4 input filter rule 30 action 'accept'
+%{ endif ~}
+  # forward — traffic routed through the router
+  - set firewall ipv4 forward filter default-action 'drop'
+  - set firewall ipv4 forward filter rule 10 description 'WAN -> control SSH (DNAT)'
+  - set firewall ipv4 forward filter rule 10 inbound-interface name '${wan_iface}'
+  - set firewall ipv4 forward filter rule 10 destination address '${control_ip}'
+  - set firewall ipv4 forward filter rule 10 destination port '22'
+  - set firewall ipv4 forward filter rule 10 protocol 'tcp'
+  - set firewall ipv4 forward filter rule 10 action 'accept'
+  - set firewall ipv4 forward filter rule 20 description 'LAN -> internet'
+  - set firewall ipv4 forward filter rule 20 source address '${lan_supernet}'
+  - set firewall ipv4 forward filter rule 20 outbound-interface name '${wan_iface}'
+  - set firewall ipv4 forward filter rule 20 action 'accept'
+  - set firewall ipv4 forward filter rule 30 description 'control -> services'
+  - set firewall ipv4 forward filter rule 30 source address '${control_subnet}'
+  - set firewall ipv4 forward filter rule 30 destination address '${services_subnet}'
+  - set firewall ipv4 forward filter rule 30 action 'accept'
+  - set firewall ipv4 forward filter rule 31 description 'control -> agent'
+  - set firewall ipv4 forward filter rule 31 source address '${control_subnet}'
+  - set firewall ipv4 forward filter rule 31 destination address '${agent_subnet}'
+  - set firewall ipv4 forward filter rule 31 action 'accept'
+%{ endif ~}
+
 %{ for cmd in extra_config_commands ~}
   - ${cmd}
 %{ endfor ~}

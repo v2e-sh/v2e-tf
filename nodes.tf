@@ -7,6 +7,7 @@ locals {
     hostname        = k
     node_users      = local.node_users[k]
     has_hub         = local.node_has_hub[k]
+    ssh_allow_users = k == "control" ? var.cluster_user : "${var.cluster_user} ${var.ansible_user}"
     package_upgrade = var.package_upgrade
     extra_packages  = var.extra_packages
     # Cloudflare tunnel connector token — only the control node gets it, and only
@@ -16,11 +17,15 @@ locals {
     # playbook against the mesh. "" disables the block (cloud-init unchanged).
     ansible_repo_url  = k == "control" ? var.ansible_repo_url : ""
     ansible_repo_ref  = var.ansible_repo_ref
+    ansible_version   = var.ansible_version
     ansible_playbook  = var.ansible_playbook
     ansible_inventory = var.ansible_inventory
     # The bootstrap runs as the dedicated ansible account (a hub user on control),
     # so it reuses that mesh's SSH key/config to reach every node + the router.
     ansible_user = var.ansible_user
+    # Ansible Vault password — seeded only on control (the bootstrap runner) and
+    # only when set; written to /home/<ansible_user>/.vault_pass. "" = not seeded.
+    ansible_vault_password = k == "control" ? var.ansible_vault_password : ""
   }) }
 }
 

@@ -1,0 +1,21 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  tofu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.8.0"
+      - name: fmt
+        run: tofu fmt -check -recursive
+      - name: init
+        run: tofu init -backend=false
+      - name: validate
+        run: tofu validate

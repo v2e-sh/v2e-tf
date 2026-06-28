@@ -26,6 +26,10 @@ locals {
     var.cloudflare_account_id != "" &&
     var.cloudflare_zone_id != ""
   )
+
+  # Opt-in: an Access (one-time PIN) gate in front of tunnel_hostname. Off unless
+  # cloudflare_access_emails is set (and the tunnel itself is enabled).
+  cloudflare_access_enabled = local.cloudflare_enabled && length(var.cloudflare_access_emails) > 0
 }
 
 # Warn (don't block) if the three creds are set inconsistently.
@@ -99,4 +103,23 @@ resource "cloudflare_dns_record" "ssh" {
   content = "${cloudflare_zero_trust_tunnel_cloudflared.ssh[0].id}.cfargotunnel.com"
   proxied = true
   ttl     = 1
+}
+
+# --- OPTIONAL: Cloudflare Access (one-time PIN) in front of tunnel_hostname ---
+# Off by default. Set cloudflare_access_emails to require an OTP to an allowed
+# email before the SSH key auth (defense in depth on the public hostname).
+resource "cloudflare_zero_trust_access_application" "ssh" {
+  count            = local.cloudflare_access_enabled ? 1 : 0
+  account_id       = var.cloudflare_account_id
+  name             = "${var.tunnel_name} ssh"
+  domain           = var.tunnel_hostname
+  type             = "self_hosted"
+  session_duration = "24h"
+
+  policies = [{
+    name       = "v2e allowed emails"
+    decision   = "allow"
+    precedence = 1
+    include    = [for e in var.cloudflare_access_emails : { email = { email = e } }]
+  }]
 }

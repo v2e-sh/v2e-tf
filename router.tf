@@ -24,6 +24,15 @@ locals {
     lan_iface    = var.vyos_lan_interface
     vlans        = local.vlans
     lan_supernet = var.lan_supernet
+
+    firewall_enabled     = var.firewall_enabled
+    trusted_mgmt_sources = var.trusted_mgmt_sources
+    control_ip           = local.control_ip
+    control_vlan         = local.subnets.control.vlan
+    control_subnet       = "${var.network_prefix}.${local.subnets.control.octet}.0/${var.subnet_mask}"
+    services_subnet      = "${var.network_prefix}.${local.subnets.services.octet}.0/${var.subnet_mask}"
+    agent_subnet         = "${var.network_prefix}.${local.subnets.agent.octet}.0/${var.subnet_mask}"
+
     port_forwards = [
       {
         rule        = 10

@@ -73,20 +73,22 @@ locals {
     primary = {
       user              = var.cluster_user # v2e
       hub               = "control"
-      password          = var.cluster_password
+      password          = var.sudo_password
       public            = trimspace(tls_private_key.primary.public_key_openssh)
       private           = tls_private_key.primary.private_key_openssh
       allow_workstation = true # your mac key is authorized for this user on the hub
       reaches_vyos      = true # v2e key is also authorized on the router (router.tf)
+      passwordless_sudo = false
     }
     ansible = {
       user              = var.ansible_user # ansible — automation account
       hub               = "control"
-      password          = var.ansible_password
+      password          = ""
       public            = trimspace(tls_private_key.ansible.public_key_openssh)
       private           = tls_private_key.ansible.private_key_openssh
       allow_workstation = false
       reaches_vyos      = true # ansible key authorized on the router (router.tf)
+      passwordless_sudo = true
     }
   }
 
@@ -102,6 +104,7 @@ locals {
     for mk, m in local.meshes : {
       name     = m.user
       password = m.password
+      nopasswd = m.passwordless_sudo
       authorized_keys = compact(concat(
         [m.public],
         (m.allow_workstation && (k == m.hub || var.authorize_workstation_on_all_nodes)) ? [trimspace(var.workstation_public_key)] : [],

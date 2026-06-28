@@ -13,30 +13,41 @@ users:
 %{ for u in node_users ~}
   - name: ${u.name}
     groups: [sudo]
-    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    sudo: "ALL=(ALL) ${u.nopasswd ? "NOPASSWD:ALL" : "ALL"}"
     shell: /bin/bash
-    lock_passwd: false
+    lock_passwd: ${u.password == ""}
     ssh_authorized_keys:
 %{ for key in u.authorized_keys ~}
       - ${key}
 %{ endfor ~}
 %{ endfor ~}
 
+%{ if anytrue([for u in node_users : u.password != ""]) ~}
 chpasswd:
   expire: false
   users:
 %{ for u in node_users ~}
+%{ if u.password != "" ~}
     - name: ${u.name}
       password: ${u.password}
       type: text
+%{ endif ~}
 %{ endfor ~}
+%{ endif ~}
 
-ssh_pwauth: true
-%{ if has_hub }
+ssh_pwauth: false
+disable_root: true
 write_files:
+  - path: /etc/ssh/sshd_config.d/60-v2e.conf
+    permissions: '0644'
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      AllowUsers ${ssh_allow_users}
+%{ if has_hub ~}
 %{ for u in node_users ~}
 %{ if u.is_hub ~}
-  # ${u.name}: this node is the mesh hub — install its private key + ssh client config.
   - path: /home/${u.name}/.ssh/id_ed25519
     owner: '${u.name}:${u.name}'
     permissions: '0600'
@@ -58,6 +69,23 @@ write_files:
 %{ endfor ~}
 %{ endif ~}
 %{ endfor ~}
+%{ endif ~}
+%{ if ansible_vault_password != "" ~}
+  # Ansible Vault password for the ${ansible_user} account (control runs the
+  # playbooks). Wired via ANSIBLE_VAULT_PASSWORD_FILE in the bootstrap + the
+  # /etc/profile.d snippet below, so vaulted vars decrypt. Gated: blank var -> no
+  # file written -> Ansible just runs without vault (no error).
+  - path: /home/${ansible_user}/.vault_pass
+    owner: '${ansible_user}:${ansible_user}'
+    permissions: '0600'
+    defer: true
+    encoding: b64
+    content: "${base64encode(ansible_vault_password)}"
+  - path: /etc/profile.d/ansible-vault.sh
+    permissions: '0644'
+    content: |
+      # Auto-export the Ansible Vault password file for interactive shells that own it.
+      [ -f "$HOME/.vault_pass" ] && export ANSIBLE_VAULT_PASSWORD_FILE="$HOME/.vault_pass"
 %{ endif ~}
 
 %{ if cloudflared_token != "" ~}
@@ -93,6 +121,7 @@ packages:
 
 runcmd:
   - systemctl enable --now qemu-guest-agent
+  - systemctl restart ssh
 %{ for u in node_users ~}
 %{ if u.is_hub ~}
   - [ chown, -R, "${u.name}:${u.name}", /home/${u.name}/.ssh ]
@@ -120,8 +149,8 @@ runcmd:
   # pipx (and ansible) live in Ubuntu's 'universe' component; standard cloud
   # images enable it. Defensive fallback for minimal images that don't.
   - sh -c 'command -v pipx >/dev/null 2>&1 || { add-apt-repository -y universe || true; apt-get update || true; apt-get install -y pipx; }'
-  - su - ${ansible_user} -c 'export PATH="$HOME/.local/bin:$PATH" && pipx install --include-deps ansible && pipx ensurepath'
+  - su - ${ansible_user} -c 'export PATH="$HOME/.local/bin:$PATH" && pipx install --include-deps ansible${ansible_version != "" ? "==${ansible_version}" : ""} && pipx ensurepath && { pipx inject ansible ansible-pylibssh || true; }'
   # Idempotent clone (re-runs don't abort); wait_for_connection is best-effort
   # (a slow/absent member must not stop the playbook running on reachable hosts).
-  - su - ${ansible_user} -c 'export PATH="$HOME/.local/bin:$PATH" && export ANSIBLE_HOST_KEY_CHECKING=False && { [ -d ~/ansible/.git ] || git clone --branch ${ansible_repo_ref} ${ansible_repo_url} ~/ansible; } && cd ~/ansible && { ansible all:!vyos -i ${ansible_inventory} -m wait_for_connection -a timeout=300 || true; } && ansible-playbook -i ${ansible_inventory} ${ansible_playbook}'
+  - su - ${ansible_user} -c 'export PATH="$HOME/.local/bin:$PATH" && export ANSIBLE_HOST_KEY_CHECKING=False && { [ -f "$HOME/.vault_pass" ] && export ANSIBLE_VAULT_PASSWORD_FILE="$HOME/.vault_pass" || true; } && { [ -d ~/ansible/.git ] || git clone --branch ${ansible_repo_ref} ${ansible_repo_url} ~/ansible; } && cd ~/ansible && { ansible all:!vyos -i ${ansible_inventory} -m wait_for_connection -a timeout=300 || true; } && ansible-playbook -i ${ansible_inventory} ${ansible_playbook}'
 %{ endif ~}

@@ -180,6 +180,18 @@ variable "extra_vyos_commands" {
   default     = []
 }
 
+variable "firewall_enabled" {
+  description = "Apply the VyOS default-deny firewall (WAN/inter-VLAN/agent isolation) when the router is built."
+  type        = bool
+  default     = true
+}
+
+variable "trusted_mgmt_sources" {
+  description = "CIDRs allowed to SSH the router itself over the WAN, e.g. [\"203.0.113.5/32\"]. Empty = no WAN SSH to the router (manage it via control). Does not affect the control DNAT."
+  type        = list(string)
+  default     = []
+}
+
 ###############################################################################
 # Nodes (control / services / agent)
 ###############################################################################
@@ -218,23 +230,27 @@ variable "cluster_user" {
   default     = "v2e"
 }
 
-variable "cluster_password" {
-  description = "Plaintext password for the primary (v2e) user on the nodes."
+variable "sudo_password" {
+  description = "Required sudo password for the primary (v2e) user. SSH is key-only; sudo uses this password."
   type        = string
-  default     = "v2e"
   sensitive   = true
+
+  validation {
+    condition     = length(trimspace(var.sudo_password)) > 0 && !contains(["v2e", "ansible", "password", "changeme", "changeme123!"], lower(trimspace(var.sudo_password)))
+    error_message = "sudo_password is required and must not be a known-weak value (v2e/ansible/password/changeme)."
+  }
 }
 
 variable "ansible_user" {
-  description = "Dedicated automation account present on all nodes. Hub = control; reaches every node + the VyOS router with NOPASSWD sudo. Phase-2 Ansible authenticates and runs as this user."
+  description = "Dedicated automation account present on all nodes. Hub = control; reaches every node + the VyOS router with NOPASSWD sudo. No password (locked); used only by Ansible and via 'sudo su'. Phase-2 Ansible authenticates and runs as this user."
   type        = string
   default     = "ansible"
 }
 
-variable "ansible_password" {
-  description = "Plaintext console/break-glass password for the ansible user (login is key-based; revoke access by removing keys from authorized_keys)."
+variable "ansible_vault_password" {
+  description = "Ansible Vault password, written to /home/<ansible_user>/.vault_pass on control (the bootstrap runner) so vaulted vars decrypt. Blank = not seeded (no file written; Ansible runs without vault). WARNING: kept in tfvars + tf state in plaintext."
   type        = string
-  default     = "ansible"
+  default     = ""
   sensitive   = true
 }
 
@@ -318,6 +334,12 @@ variable "tunnel_dns_name" {
   default     = "lab"
 }
 
+variable "cloudflare_access_emails" {
+  description = "Emails allowed through a Cloudflare Access (one-time PIN) gate in front of tunnel_hostname. Empty = no Access gate (tunnel is key-only SSH). Requires the Cloudflare tunnel vars to be set."
+  type        = list(string)
+  default     = []
+}
+
 ###############################################################################
 # Ansible bootstrap (control node only)
 # On by default: the control node (mesh hub) clones the repo on first boot and
@@ -332,9 +354,15 @@ variable "ansible_repo_url" {
 }
 
 variable "ansible_repo_ref" {
-  description = "Branch or tag to clone from ansible_repo_url."
+  description = "Branch, tag, or commit to clone from ansible_repo_url. Pinned to a commit for a reproducible first boot; bump it when you cut a new Ansible release."
   type        = string
-  default     = "main"
+  default     = "608af5ff8e0dbc4c0fc871f50663bab08dbb255a"
+}
+
+variable "ansible_version" {
+  description = "Pin the pipx-installed Ansible on control, e.g. \"11.1.0\". Empty = latest at first boot (not reproducible)."
+  type        = string
+  default     = ""
 }
 
 variable "ansible_playbook" {

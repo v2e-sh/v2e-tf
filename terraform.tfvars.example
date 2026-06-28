@@ -40,11 +40,9 @@ authorize_workstation_on_all_nodes = false
 # ---- Logins ----
 # primary admin mesh (hub = control): v2e@control reaches services, agent, vyos
 cluster_user     = "v2e"
-cluster_password = "ChangeMe123!"
+sudo_password    = ""
 # automation mesh (hub = control): ansible@control reaches every node + the router.
-# Login is key-based; this is just a console/break-glass password.
 ansible_user     = "ansible"
-ansible_password = "ChangeMe123!"
 
 # ---- VyOS router login ----
 # The router comes up with the default 'vyos' user, authorized for your mac key +
@@ -67,6 +65,13 @@ extra_vyos_commands = [
   # "set system time-zone 'Europe/Amsterdam'",
 ]
 
+# ---- Firewall ----
+# Default-deny boundary applied when the router is built (set false to disable).
+# firewall_enabled = true
+# CIDRs allowed to SSH the ROUTER itself over the WAN. Empty = none (reach the
+# router via control). Does not affect the control DNAT (WAN:2201 -> control:22).
+trusted_mgmt_sources = [] # e.g. ["203.0.113.5/32"]
+
 # ---- Cloudflare tunnel (OPTIONAL) ----
 # Leave these three BLANK to skip Cloudflare entirely; the rest of the lab
 # deploys unchanged. Set ALL THREE to bring up a key-auth SSH tunnel to control
@@ -80,6 +85,8 @@ cloudflare_zone_id    = ""
 # Hostname routed to control's sshd (defaults shown; override for your domain).
 tunnel_hostname = "lab.v2e.sh"
 tunnel_dns_name = "lab"
+# Optional OTP gate on the tunnel hostname (empty = none, key-only SSH):
+# cloudflare_access_emails = ["you@example.com"]
 # tunnel_name   = "v2e-control-ssh"
 
 # ---- Ansible bootstrap ----
@@ -88,6 +95,12 @@ tunnel_dns_name = "lab"
 # hosts must be reachable from control as v2e — use the ssh aliases (services,
 # agent) or their IPs. Set ansible_repo_url = "" to disable.
 ansible_repo_url  = "https://github.com/v2e-sh/v2e-ansible"
-ansible_repo_ref  = "main"
+ansible_repo_ref  = "608af5ff8e0dbc4c0fc871f50663bab08dbb255a" # pin to a commit/tag; bump on new releases
 ansible_playbook  = "site.yml"
-ansible_inventory = "inventory.ini"
+ansible_inventory = "inventory/hosts.ini"
+# ansible_version = "11.1.0"  # pin the pipx Ansible on control (empty = latest)
+
+# Ansible Vault password — seeded to /home/ansible/.vault_pass on control so the
+# bootstrap can decrypt vaulted vars. Blank = not seeded (Ansible runs without
+# vault). WARNING: stored here AND in tf state in plaintext.
+# ansible_vault_password = ""
