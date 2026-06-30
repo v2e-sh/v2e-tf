@@ -63,6 +63,9 @@ resource "proxmox_virtual_environment_vm" "vyos" {
   node_name = var.node_name
   tags      = ["v2e-v3", "vyos", "router", "terraform"]
 
+  # Hard-stop (not graceful shutdown) on destroy — consistent teardown for all VMs.
+  stop_on_destroy = true
+
   # VyOS template has no running guest agent — don't let Terraform wait on it.
   agent {
     enabled = false

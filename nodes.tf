@@ -69,6 +69,10 @@ resource "proxmox_virtual_environment_vm" "node" {
   node_name = var.node_name
   tags      = ["v2e-v3", each.value.role, "terraform"]
 
+  # Hard-stop (not graceful shutdown) on destroy, so teardown never blocks waiting
+  # on the guest agent if it isn't running (a desktop-class guest is the worst case).
+  stop_on_destroy = true
+
   # Guest agent on: adds the virtio guest-agent channel so qemu-guest-agent runs
   # (clean shutdown + IP reporting). NOTE: tofu apply now waits for the agent to
   # report per node during create.
