@@ -9,14 +9,12 @@ locals {
     has_hub         = local.node_has_hub[k]
     ssh_allow_users = k == "control" ? var.cluster_user : "${var.cluster_user} ${var.ansible_user}"
     package_upgrade = var.package_upgrade
-    extra_packages  = var.extra_packages
     # Cloudflare tunnel connector token — only the control node gets it, and only
     # when the tunnel is enabled. "" renders the cloud-init identically to before.
     cloudflared_token = (local.cloudflare_enabled && k == "control") ? one(data.cloudflare_zero_trust_tunnel_cloudflared_token.ssh[*].token) : ""
     # Ansible bootstrap — only the control node clones the repo and runs the
     # playbook against the mesh. "" disables the block (cloud-init unchanged).
     ansible_repo_url  = k == "control" ? var.ansible_repo_url : ""
-    ansible_repo_ref  = var.ansible_repo_ref
     ansible_version   = var.ansible_version
     ansible_playbook  = var.ansible_playbook
     ansible_inventory = var.ansible_inventory
@@ -26,7 +24,26 @@ locals {
     # Ansible Vault password — seeded only on control (the bootstrap runner) and
     # only when set; written to /home/<ansible_user>/.vault_pass. "" = not seeded.
     ansible_vault_password = k == "control" ? var.ansible_vault_password : ""
+    # SOPS — only control gets the encrypted secrets + age key, and only when set.
+    # file() reads at plan time; the gate short-circuits so it's never called for
+    # other nodes or when the path is "". "" renders the SOPS cloud-init blocks
+    # empty — byte-identical to the no-SOPS case.
+    sops_secrets = (k == "control" && var.sops_secrets_file != "") ? file(var.sops_secrets_file) : ""
+    sops_age_key = (k == "control" && var.sops_age_key_file != "") ? file(var.sops_age_key_file) : ""
   }) }
+}
+
+# Both-or-neither: a secrets file with no age key can't be decrypted on control, and
+# an age key with no secrets is pointless. Warn (don't block) on a half-config — same
+# style as the Cloudflare consistency check.
+check "sops_vars_consistent" {
+  assert {
+    condition = (
+      (var.sops_secrets_file != "" && var.sops_age_key_file != "") ||
+      (var.sops_secrets_file == "" && var.sops_age_key_file == "")
+    )
+    error_message = "SOPS is half-configured: set BOTH sops_secrets_file and sops_age_key_file to enable it, or leave BOTH blank to disable."
+  }
 }
 
 resource "proxmox_virtual_environment_file" "node_user_data" {
@@ -88,6 +105,12 @@ resource "proxmox_virtual_environment_vm" "node" {
 
   initialization {
     datastore_id = var.datastore_id
+
+    # ciupgrade=0 — skip cloud-init's first-boot apt upgrade. These nodes use a
+    # custom user_data_file_id (cicustom), so this Proxmox flag doesn't drive the
+    # upgrade on its own; package_upgrade in the user-data is the effective lever
+    # and is also off. Ansible owns patching.
+    upgrade = false
 
     ip_config {
       ipv4 {

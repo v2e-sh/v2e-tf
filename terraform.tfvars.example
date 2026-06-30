@@ -13,7 +13,10 @@ snippet_datastore_id = "local"
 wan_bridge = "vmbr0"   # internet from the host
 lan_bridge = "vmbr1"   # MUST be VLAN-aware (see README)
 
-# ---- Templates (built earlier) ----
+# ---- Templates (Packer-built; production VMIDs) ----
+# ubuntu-2404-pk -> 9001 (prod) / 9901 (staging); debian-13-pk -> 9002 / 9902.
+# VyOS is the hand-built cloud-init image at 9000. While a template still lives at
+# its staging VMID, override here: ubuntu_template_id=9901, debian_template_id=9902.
 vyos_template_id   = 9000
 ubuntu_template_id = 9001
 debian_template_id = 9002
@@ -60,11 +63,6 @@ ansible_user     = "ansible"
 # Give VyOS longer to boot+route on a slow host before the nodes come up.
 router_boot_wait = "120s"
 
-# Extra raw VyOS commands, e.g. a DNS forwarder or time zone:
-extra_vyos_commands = [
-  # "set system time-zone 'Europe/Amsterdam'",
-]
-
 # ---- Firewall ----
 # Default-deny boundary applied when the router is built (set false to disable).
 # firewall_enabled = true
@@ -90,12 +88,11 @@ tunnel_dns_name = "lab"
 # tunnel_name   = "v2e-control-ssh"
 
 # ---- Ansible bootstrap ----
-# ON by default: control (mesh hub) clones the PUBLIC repo on first boot and runs
-# the playbook against the whole mesh over its existing v2e SSH trust. Inventory
-# hosts must be reachable from control as v2e — use the ssh aliases (services,
-# agent) or their IPs. Set ansible_repo_url = "" to disable.
+# ON by default: control (mesh hub) clones the PUBLIC repo's default branch (main)
+# on first boot and runs the playbook against the whole mesh over its existing v2e
+# SSH trust. Inventory hosts must be reachable from control as v2e — use the ssh
+# aliases (services, agent) or their IPs. Set ansible_repo_url = "" to disable.
 ansible_repo_url  = "https://github.com/v2e-sh/v2e-ansible"
-ansible_repo_ref  = "608af5ff8e0dbc4c0fc871f50663bab08dbb255a" # pin to a commit/tag; bump on new releases
 ansible_playbook  = "site.yml"
 ansible_inventory = "inventory/hosts.ini"
 # ansible_version = "11.1.0"  # pin the pipx Ansible on control (empty = latest)
@@ -104,3 +101,13 @@ ansible_inventory = "inventory/hosts.ini"
 # bootstrap can decrypt vaulted vars. Blank = not seeded (Ansible runs without
 # vault). WARNING: stored here AND in tf state in plaintext.
 # ansible_vault_password = ""
+
+# ---- Secrets: SOPS + age (OPTIONAL) ----
+# One locally-encrypted file + the age key that decrypts it, both written to
+# control at first boot. Blank = feature OFF (cloud-init renders byte-identical).
+#   age-keygen -o keys.txt
+#   sops --encrypt --age <PUBLIC-key-from-keys.txt> secrets.yaml > secrets.sops.yaml
+# Then point these at those paths. The age PRIVATE key ends up in tf state — treat
+# state as sensitive and rotate on a clean rebuild. Supersedes ansible_vault_password.
+# sops_secrets_file = "./secrets.sops.yaml"   # -> control:~/ansible/group_vars/all.yml
+# sops_age_key_file = "./keys.txt"            # -> control:~/.config/sops/age/keys.txt

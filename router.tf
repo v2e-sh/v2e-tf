@@ -43,7 +43,6 @@ locals {
         lan_port    = 22
       }
     ]
-    extra_config_commands = var.extra_vyos_commands
   })
 }
 
