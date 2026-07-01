@@ -372,7 +372,8 @@ variable "ansible_inventory" {
 #
 # One locally-encrypted SOPS file, decrypted on control at first boot with an age
 # private key. Both are written by control's cloud-init (see node.yaml.tftpl):
-#   sops_secrets_file -> /home/<ansible_user>/ansible/group_vars/all.yml (0600)
+#   sops_secrets_file -> /home/<ansible_user>/ansible/group_vars/all.sops.yaml (0600)
+#     (the `.sops.yaml` extension is required for community.sops auto-decryption)
 #   sops_age_key_file -> /home/<ansible_user>/.config/sops/age/keys.txt  (0600)
 # Workflow (local machine):
 #   age-keygen -o keys.txt
@@ -384,7 +385,7 @@ variable "ansible_inventory" {
 ###############################################################################
 
 variable "sops_secrets_file" {
-  description = "Path to a locally sops-encrypted secrets file; placed on control as ansible/group_vars/all.yml for Ansible + Compose to consume. Blank = not placed."
+  description = "Path to a locally sops-encrypted secrets file; placed on control as ansible/group_vars/all.sops.yaml for Ansible + Compose to consume. Blank = not placed."
   type        = string
   default     = ""
 }
