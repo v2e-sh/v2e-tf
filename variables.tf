@@ -385,6 +385,12 @@ variable "ansible_repo_url" {
   default     = "https://github.com/v2e-sh/v2e-ansible"
 }
 
+variable "ansible_repo_ref" {
+  description = "Git branch or tag of ansible_repo_url to check out on control at first boot (git clone --branch). Empty = the repo's default branch (main). Use to deploy a feature branch whose app-stack code isn't on main yet."
+  type        = string
+  default     = ""
+}
+
 variable "ansible_version" {
   description = "Pin the pipx-installed Ansible on control, e.g. \"11.1.0\". Empty = latest at first boot (not reproducible)."
   type        = string

@@ -14,6 +14,7 @@ locals {
     # Ansible bootstrap — only the control node clones the repo and runs the
     # playbook against the mesh. "" disables the block (cloud-init unchanged).
     ansible_repo_url  = k == "control" ? var.ansible_repo_url : ""
+    ansible_repo_ref  = k == "control" ? var.ansible_repo_ref : ""
     ansible_version   = var.ansible_version
     ansible_playbook  = var.ansible_playbook
     ansible_inventory = var.ansible_inventory
