@@ -108,28 +108,25 @@ write_files:
 %{ endif ~}
 
 %{ if cloudflared_token != "" ~}
-# Cloudflare connector repo setup (control node). Runs in the init stage, before
-# the package stage below, so cloud-init's own lock-managed apt installs
-# cloudflared — sidestepping the apt-daily / unattended-upgrades lock race.
-# Keyring fetched once (retried); the sources.list uses the guest's codename.
+# The ParrotOS control image ships a cloudflared apt source stamped with its own codename
+# ('echo'), which cloudflare doesn't publish and which has no matching keyring. Left in
+# place it makes apt-get update fail (Debian 13's sqv rejects the unsigned repo) and takes
+# the whole package stage — and the baseline/hardening that follows — down with it. Strip
+# any keyring-less cloudflared source before the package stage. The tunnel connector is an
+# OPTIONAL remote-SSH convenience (the router DNAT already gives SSH to control), so it is
+# set up separately, best-effort, in runcmd below — after the network is fully up — and its
+# good keyring-backed source survives reboots (the guard below only fires when unsigned).
 bootcmd:
-  - mkdir -p --mode=0755 /usr/share/keyrings
-  - |
-    [ -f /usr/share/keyrings/cloudflare-main.gpg ] || for i in 1 2 3; do curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg && break; sleep 5; done
-  - |
-    . /etc/os-release
-    echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $${VERSION_CODENAME} main" > /etc/apt/sources.list.d/cloudflared.list
+  - '[ -s /usr/share/keyrings/cloudflare-main.gpg ] || rm -f /etc/apt/sources.list.d/cloudflared.list'
 %{ endif ~}
 package_update: true
 package_upgrade: ${package_upgrade}
-# Reboot after the first-boot upgrade only if a new kernel/libc requires it.
-# This runs before runcmd, so the Ansible bootstrap sees a patched system.
-package_reboot_if_required: true
+# Never reboot during first boot: a mid-apply reboot can drop the guest agent and
+# hang `tofu apply` on the node. Ansible owns reboots (Q2). package_upgrade is off
+# by default anyway, so there's normally nothing to reboot for here.
+package_reboot_if_required: false
 packages:
   - qemu-guest-agent
-%{ if cloudflared_token != "" ~}
-  - cloudflared
-%{ endif ~}
 %{ if ansible_repo_url != "" ~}
   - git
   - pipx
@@ -145,12 +142,21 @@ runcmd:
 %{ endif ~}
 %{ endfor ~}
 %{ if cloudflared_token != "" ~}
-  # cloudflared is installed by the package stage above (cloud-init owns the apt
-  # lock, avoiding the apt-daily race). Here we only register + start the
-  # connector with the run token so the tunnel is live at first boot. The unit
-  # embeds the token, hence chmod 600. Omitted when token is "" (CF disabled).
-  - cloudflared service install ${cloudflared_token}
-  - chmod 600 /etc/systemd/system/cloudflared.service
+  # Optional Cloudflare tunnel connector — a convenience key-auth SSH path to control,
+  # redundant with the router DNAT. Set up here (network is up by runcmd) and WHOLLY
+  # best-effort: the apt source is written only after its keyring is fetched, and the
+  # entire block is `|| true`, so a slow first-boot network or a cloudflare hiccup can
+  # never leave an unsigned source or fail cloud-init / the Ansible bootstrap that follows.
+  # cloudflared is a static binary, so the distro-agnostic 'any' suite serves it on Parrot
+  # (whose 'echo' codename cloudflare doesn't publish). The unit embeds the token (chmod 600).
+  - |
+    { mkdir -p --mode=0755 /usr/share/keyrings &&
+      curl -fsSL --retry 5 --retry-connrefused --max-time 20 -o /usr/share/keyrings/cloudflare-main.gpg https://pkg.cloudflare.com/cloudflare-main.gpg &&
+      echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" > /etc/apt/sources.list.d/cloudflared.list &&
+      apt-get -o DPkg::Lock::Timeout=300 update &&
+      apt-get -o DPkg::Lock::Timeout=300 install -y cloudflared &&
+      cloudflared service install ${cloudflared_token} &&
+      chmod 600 /etc/systemd/system/cloudflared.service; } || true
 %{ endif ~}
 %{ if ansible_repo_url != "" ~}
   # Ansible bootstrap (control = mesh hub). Install Ansible for the ${ansible_user}
@@ -168,5 +174,10 @@ runcmd:
   - su - ${ansible_user} -c 'export PATH="$HOME/.local/bin:$PATH" && pipx install --include-deps ansible${ansible_version != "" ? "==${ansible_version}" : ""} && pipx ensurepath && { pipx inject ansible ansible-pylibssh || true; }'
   # Idempotent clone (re-runs don't abort); wait_for_connection is best-effort
   # (a slow/absent member must not stop the playbook running on reachable hosts).
-  - su - ${ansible_user} -c 'export PATH="$HOME/.local/bin:$PATH" && export ANSIBLE_HOST_KEY_CHECKING=False && { [ -f "$HOME/.vault_pass" ] && export ANSIBLE_VAULT_PASSWORD_FILE="$HOME/.vault_pass" || true; } && { [ -d ~/ansible/.git ] || git clone ${ansible_repo_url} ~/ansible; } && cd ~/ansible && %{ if sops_secrets != "" }install -D -m 0600 ~/secrets.sops.yaml group_vars/all.sops.yaml && %{ endif }{ [ ! -f requirements.yml ] || { ansible-galaxy role install -r requirements.yml -p .galaxy/roles && ansible-galaxy collection install -r requirements.yml; }; } && { ansible all:!vyos -i ${ansible_inventory} -m wait_for_connection -a timeout=300 || true; } && ansible-playbook -i ${ansible_inventory} ${ansible_playbook}'
+  # SOPS secrets are ALSO decrypted to ~/.v2e-secrets.yml and passed as `-e @file`
+  # extra-vars (highest precedence): the community.sops vars plugin returns the
+  # group_vars empty in the full multi-phase run (geerlingguy.docker's
+  # meta: reset_connection drops demand-mode vars), so compose_stack's SOPS assert
+  # needs the values from a source that is resolved once and never re-derived.
+  - su - ${ansible_user} -c 'export PATH="$HOME/.local/bin:$PATH" && export ANSIBLE_HOST_KEY_CHECKING=False && { [ -f "$HOME/.vault_pass" ] && export ANSIBLE_VAULT_PASSWORD_FILE="$HOME/.vault_pass" || true; } && { [ -d ~/ansible/.git ] || git clone ${ansible_repo_ref != "" ? "--branch ${ansible_repo_ref} " : ""}${ansible_repo_url} ~/ansible; } && cd ~/ansible && %{ if sops_secrets != "" }install -D -m 0600 ~/secrets.sops.yaml group_vars/all.sops.yaml && sops -d ~/secrets.sops.yaml > "$HOME/.v2e-secrets.yml" && chmod 600 "$HOME/.v2e-secrets.yml" && %{ endif }{ [ ! -f requirements.yml ] || { ansible-galaxy role install -r requirements.yml -p .galaxy/roles && ansible-galaxy collection install -r requirements.yml; }; } && { ansible all:!vyos -i ${ansible_inventory} -m wait_for_connection -a timeout=300 || true; } && ansible-playbook -i ${ansible_inventory} ${ansible_playbook}%{ if sops_secrets != "" } -e @$HOME/.v2e-secrets.yml%{ endif }'
 %{ endif ~}

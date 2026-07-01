@@ -113,6 +113,12 @@ variable "debian_template_id" {
   default     = 9002
 }
 
+variable "parrot_template_id" {
+  description = "VMID of the ParrotOS Home template (control workstation)."
+  type        = number
+  default     = 9003
+}
+
 ###############################################################################
 # VyOS router
 ###############################################################################
@@ -120,7 +126,7 @@ variable "debian_template_id" {
 variable "vyos_name" {
   description = "Name/hostname of the VyOS router VM."
   type        = string
-  default     = "v2e-vyos"
+  default     = "router"
 }
 
 variable "vyos_vmid" {
@@ -194,6 +200,18 @@ variable "trusted_mgmt_sources" {
   default     = []
 }
 
+variable "agent_egress_restricted" {
+  description = "Deny-by-default internet egress for the agent (AI) node (Q1, zero-trust for the AI VLAN). true: the agent reaches the internet only via the allowlist — DNS to name_servers, NTP, and agent_egress_allow_tcp_ports. false: open egress like the other nodes. control + services always keep open egress. Requires firewall_enabled."
+  type        = bool
+  default     = true
+}
+
+variable "agent_egress_allow_tcp_ports" {
+  description = "TCP destination ports the agent node may reach on the internet when agent_egress_restricted = true (DNS/53 and NTP/123 are always allowed). Default 80/443 covers apt, git, container pulls, and HTTPS APIs; add ports the agent legitimately needs."
+  type        = list(number)
+  default     = [80, 443]
+}
+
 ###############################################################################
 # Nodes (control / services / agent)
 ###############################################################################
@@ -224,6 +242,24 @@ variable "node_disk_size" {
   description = "Must be >= the cloud-image template disk (20G)."
   type        = number
   default     = 20
+}
+
+variable "control_cores" {
+  description = "vCPU cores for the control node (ParrotOS workstation)."
+  type        = number
+  default     = 4
+}
+
+variable "control_memory" {
+  description = "Memory (MB) for the control node (ParrotOS workstation)."
+  type        = number
+  default     = 8192
+}
+
+variable "control_disk_size" {
+  description = "Disk size (GB) for the control node. Must be >= the ParrotOS template disk."
+  type        = number
+  default     = 64
 }
 
 variable "cluster_user" {
@@ -347,6 +383,12 @@ variable "ansible_repo_url" {
   description = "Public git URL of the Ansible repo cloned + run on control at first boot. Blank = bootstrap disabled."
   type        = string
   default     = "https://github.com/v2e-sh/v2e-ansible"
+}
+
+variable "ansible_repo_ref" {
+  description = "Git branch or tag of ansible_repo_url to check out on control at first boot (git clone --branch). Empty = the repo's default branch (main). Use to deploy a feature branch whose app-stack code isn't on main yet."
+  type        = string
+  default     = ""
 }
 
 variable "ansible_version" {

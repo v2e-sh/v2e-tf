@@ -70,6 +70,14 @@ router_boot_wait = "120s"
 # router via control). Does not affect the control DNAT (WAN:2201 -> control:22).
 trusted_mgmt_sources = [] # e.g. ["203.0.113.5/32"]
 
+# ---- Agent (AI) node egress ----
+# Deny-by-default internet egress for the agent VLAN (zero-trust for the AI node).
+# ON by default: the agent reaches the internet only via DNS (to name_servers), NTP,
+# and the TCP ports below. control + services keep open egress regardless. Set
+# agent_egress_restricted = false for open agent egress like the other nodes.
+# agent_egress_restricted      = true
+# agent_egress_allow_tcp_ports = [80, 443]   # add ports the agent legitimately needs
+
 # ---- Cloudflare tunnel (OPTIONAL) ----
 # Leave these three BLANK to skip Cloudflare entirely; the rest of the lab
 # deploys unchanged. Set ALL THREE to bring up a key-auth SSH tunnel to control

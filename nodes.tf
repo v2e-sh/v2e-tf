@@ -14,6 +14,7 @@ locals {
     # Ansible bootstrap — only the control node clones the repo and runs the
     # playbook against the mesh. "" disables the block (cloud-init unchanged).
     ansible_repo_url  = k == "control" ? var.ansible_repo_url : ""
+    ansible_repo_ref  = k == "control" ? var.ansible_repo_ref : ""
     ansible_version   = var.ansible_version
     ansible_playbook  = var.ansible_playbook
     ansible_inventory = var.ansible_inventory
@@ -66,7 +67,9 @@ resource "proxmox_virtual_environment_vm" "node" {
   name      = each.key
   vm_id     = each.value.vm_id
   node_name = var.node_name
-  tags      = ["v2e-v3", each.value.role, "terraform"]
+  tags      = sort([local.tag_project, each.value.os, local.node_ip[each.key], "terraform"])
+  bios      = each.value.bios
+  machine   = each.value.bios == "ovmf" ? "q35" : null
 
   # Hard-stop (not graceful shutdown) on destroy, so teardown never blocks waiting
   # on the guest agent if it isn't running (a desktop-class guest is the worst case).
@@ -85,18 +88,28 @@ resource "proxmox_virtual_environment_vm" "node" {
   }
 
   cpu {
-    cores = var.node_cores
+    cores = each.value.cores
     type  = "host"
   }
 
   memory {
-    dedicated = var.node_memory
+    dedicated = each.value.memory
   }
 
   disk {
     datastore_id = var.datastore_id
     interface    = "scsi0"
-    size         = var.node_disk_size
+    size         = each.value.disk_size
+  }
+
+  dynamic "efi_disk" {
+    for_each = each.value.bios == "ovmf" ? [1] : []
+    content {
+      datastore_id      = var.datastore_id
+      file_format       = "raw"
+      type              = "4m"
+      pre_enrolled_keys = false
+    }
   }
 
   # Single access port tagged into this node's VLAN.
