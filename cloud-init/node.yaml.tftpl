@@ -111,14 +111,16 @@ write_files:
 # Cloudflare connector repo setup (control node). Runs in the init stage, before
 # the package stage below, so cloud-init's own lock-managed apt installs
 # cloudflared — sidestepping the apt-daily / unattended-upgrades lock race.
-# Keyring fetched once (retried); the sources.list uses the guest's codename.
+# Keyring fetched once (retried). The repo uses cloudflare's distro-agnostic 'any'
+# suite (not the guest codename): control is a ParrotOS workstation whose codename
+# ('echo') cloudflare doesn't publish, so $${VERSION_CODENAME} would 404 and break
+# apt-get update. 'any' serves the static cloudflared binary for every distro, and
+# overwrites the codename-stamped cloudflared.list the Parrot image ships.
 bootcmd:
   - mkdir -p --mode=0755 /usr/share/keyrings
   - |
     [ -f /usr/share/keyrings/cloudflare-main.gpg ] || for i in 1 2 3; do curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg && break; sleep 5; done
-  - |
-    . /etc/os-release
-    echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $${VERSION_CODENAME} main" > /etc/apt/sources.list.d/cloudflared.list
+  - echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" > /etc/apt/sources.list.d/cloudflared.list
 %{ endif ~}
 package_update: true
 package_upgrade: ${package_upgrade}
