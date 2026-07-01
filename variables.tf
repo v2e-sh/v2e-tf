@@ -194,6 +194,18 @@ variable "trusted_mgmt_sources" {
   default     = []
 }
 
+variable "agent_egress_restricted" {
+  description = "Deny-by-default internet egress for the agent (AI) node (Q1, zero-trust for the AI VLAN). true: the agent reaches the internet only via the allowlist — DNS to name_servers, NTP, and agent_egress_allow_tcp_ports. false: open egress like the other nodes. control + services always keep open egress. Requires firewall_enabled."
+  type        = bool
+  default     = true
+}
+
+variable "agent_egress_allow_tcp_ports" {
+  description = "TCP destination ports the agent node may reach on the internet when agent_egress_restricted = true (DNS/53 and NTP/123 are always allowed). Default 80/443 covers apt, git, container pulls, and HTTPS APIs; add ports the agent legitimately needs."
+  type        = list(number)
+  default     = [80, 443]
+}
+
 ###############################################################################
 # Nodes (control / services / agent)
 ###############################################################################
