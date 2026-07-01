@@ -43,7 +43,6 @@ locals {
         lan_port    = 22
       }
     ]
-    extra_config_commands = var.extra_vyos_commands
   })
 }
 
@@ -63,6 +62,9 @@ resource "proxmox_virtual_environment_vm" "vyos" {
   vm_id     = var.vyos_vmid
   node_name = var.node_name
   tags      = ["v2e-v3", "vyos", "router", "terraform"]
+
+  # Hard-stop (not graceful shutdown) on destroy — consistent teardown for all VMs.
+  stop_on_destroy = true
 
   # VyOS template has no running guest agent — don't let Terraform wait on it.
   agent {

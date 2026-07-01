@@ -85,22 +85,30 @@ variable "name_servers" {
 
 ###############################################################################
 # Templates to clone
+#
+# image -> Packer template -> Proxmox VMID chain (built by v2e-packer):
+#   Ubuntu 24.04 cloud image -> ubuntu-2404-pk -> 9001 (prod) / 9901 (staging)
+#   Debian 13   cloud image -> debian-13-pk   -> 9002 (prod) / 9902 (staging)
+# VyOS is still the hand-built cloud-init image at 9000 (not yet Packer-built).
+# Defaults point at the PRODUCTION VMIDs (Packer is being promoted to these).
+# While a template still lives at its staging VMID, override in tfvars:
+#   ubuntu_template_id = 9901 ; debian_template_id = 9902
 ###############################################################################
 
 variable "vyos_template_id" {
-  description = "VMID of the VyOS template."
+  description = "VMID of the VyOS template (hand-built cloud-init image; not yet Packer-built)."
   type        = number
   default     = 9000
 }
 
 variable "ubuntu_template_id" {
-  description = "VMID of the Ubuntu template (control + services)."
+  description = "VMID of the Ubuntu template for control + services. Packer 'ubuntu-2404-pk' from the Ubuntu 24.04 cloud image. Prod 9001 / staging 9901."
   type        = number
   default     = 9001
 }
 
 variable "debian_template_id" {
-  description = "VMID of the Debian template (agent)."
+  description = "VMID of the Debian template for agent. Packer 'debian-13-pk' from the Debian 13 cloud image. Prod 9002 / staging 9902."
   type        = number
   default     = 9002
 }
@@ -172,12 +180,6 @@ variable "router_boot_wait" {
   description = "How long to wait after the router VM is created before building the nodes (lets VyOS boot + apply routing). Go duration string."
   type        = string
   default     = "120s"
-}
-
-variable "extra_vyos_commands" {
-  description = "Extra raw 'set ...' VyOS commands appended to cloud-init."
-  type        = list(string)
-  default     = []
 }
 
 variable "firewall_enabled" {
@@ -255,15 +257,9 @@ variable "ansible_vault_password" {
 }
 
 variable "package_upgrade" {
-  description = "Run apt upgrade on first boot of the nodes."
+  description = "Run apt upgrade on first boot of the nodes. Default false: Ansible owns patching and the first-boot upgrade is slow. Set true to patch before the Ansible bootstrap runs."
   type        = bool
-  default     = true
-}
-
-variable "extra_packages" {
-  description = "Extra apt packages installed on all nodes."
-  type        = list(string)
-  default     = []
+  default     = false
 }
 
 ###############################################################################
@@ -353,12 +349,6 @@ variable "ansible_repo_url" {
   default     = "https://github.com/v2e-sh/v2e-ansible"
 }
 
-variable "ansible_repo_ref" {
-  description = "Branch, tag, or commit to clone from ansible_repo_url. Pinned to a commit for a reproducible first boot; bump it when you cut a new Ansible release."
-  type        = string
-  default     = "608af5ff8e0dbc4c0fc871f50663bab08dbb255a"
-}
-
 variable "ansible_version" {
   description = "Pin the pipx-installed Ansible on control, e.g. \"11.1.0\". Empty = latest at first boot (not reproducible)."
   type        = string
@@ -375,4 +365,32 @@ variable "ansible_inventory" {
   description = "Inventory file to use, relative to the repo root. Hosts must be reachable from control as the ansible automation user (control = local, services via direct SSH as ansible)."
   type        = string
   default     = "inventory/hosts.ini"
+}
+
+###############################################################################
+# Secrets — SOPS + age (optional; blank = feature off)
+#
+# One locally-encrypted SOPS file, decrypted on control at first boot with an age
+# private key. Both are written by control's cloud-init (see node.yaml.tftpl):
+#   sops_secrets_file -> /home/<ansible_user>/ansible/group_vars/all.yml (0600)
+#   sops_age_key_file -> /home/<ansible_user>/.config/sops/age/keys.txt  (0600)
+# Workflow (local machine):
+#   age-keygen -o keys.txt
+#   sops --encrypt --age <PUBLIC-key-from-keys.txt> secrets.yaml > secrets.sops.yaml
+#   then set the two vars below to those file paths.
+# NOTE: the age PRIVATE key is read into tf state + the cloud-init snippet (as the
+# mesh keys already are) — treat state as sensitive and rotate on a clean rebuild.
+# Intended to supersede ansible_vault_password (D-1); both can coexist for now.
+###############################################################################
+
+variable "sops_secrets_file" {
+  description = "Path to a locally sops-encrypted secrets file; placed on control as ansible/group_vars/all.yml for Ansible + Compose to consume. Blank = not placed."
+  type        = string
+  default     = ""
+}
+
+variable "sops_age_key_file" {
+  description = "Path to the age PRIVATE key that decrypts sops_secrets_file; written to control's ~/.config/sops/age/keys.txt so sops auto-discovers it. Blank = not written."
+  type        = string
+  default     = ""
 }

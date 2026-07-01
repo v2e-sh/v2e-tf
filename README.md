@@ -35,12 +35,17 @@ with three nodes behind it. Built with Terraform + cloud-init.
   with the VyOS default **`vyos`** user, authorized for your mac key + both mesh
   keys, so control reaches it as `vyos@10.1.1.1` by key. Provisioning dedicated
   router users is left to phase-2 Ansible.
-- **Internet:** VyOS masquerades `10.1.0.0/16` out eth0; inter-VLAN routing is
-  on by default (no firewall), so control reaches the others directly.
+- **Internet:** VyOS masquerades `10.1.0.0/16` out eth0. A default-deny firewall
+  (`firewall_enabled`, on by default) restricts inter-VLAN traffic to control ->
+  services and control -> agent, plus LAN -> internet egress; the nodes can't
+  reach each other directly.
 
 ## Prerequisites (one-time, on the Proxmox host)
 
-1. **Templates built:** VyOS `9000`, Ubuntu `9001`, Debian `9002`.
+1. **Templates built** (v2e-packer): VyOS `9000` (hand-built cloud-init image);
+   Ubuntu `ubuntu-2404-pk` → `9001` prod / `9901` staging; Debian `debian-13-pk`
+   → `9002` / `9902`. While a template is still at its staging VMID, set
+   `ubuntu_template_id` / `debian_template_id` to `9901` / `9902` in tfvars.
 2. **Snippets enabled** on `local`:
    ```bash
    pvesm set local --content iso,vztmpl,backup,snippets
@@ -80,12 +85,16 @@ terraform apply
 ```bash
 terraform output                       # all the ssh hints
 
-ssh v2e@<vyos-wan>                      # manage VyOS directly (mac is on WAN)
-ssh -p 2201 v2e@<vyos-wan>             # -> control node
-# then, from control:
+ssh -p 2201 v2e@<vyos-wan>             # -> control node (DNAT WAN:2201 -> control:22)
+# then, from control, reach the router + the other nodes over the mesh:
+ssh vyos                               # -> VyOS router (bootstrap 'vyos' user)
 ssh services
 ssh agent
 ```
+
+The router has **no WAN SSH by default** (firewall on, `trusted_mgmt_sources` empty)
+— manage it from control as above. To allow direct `ssh vyos@<vyos-wan>`, add your
+IP to `trusted_mgmt_sources`.
 
 ## Notes / gotchas
 

@@ -13,8 +13,12 @@ output "node_addresses" {
 }
 
 output "ssh_to_vyos" {
-  description = "Manage the router directly (mac is on the WAN segment). Bootstrap user is the VyOS default 'vyos'; phase-2 Ansible provisions dedicated router users."
-  value       = "ssh ${local.router_bootstrap_user}@${local.wan_ip}"
+  description = "How to reach the VyOS router as the bootstrap 'vyos' user. Direct WAN SSH only when the firewall is off OR trusted_mgmt_sources allows your IP; otherwise reach it via control. Phase-2 Ansible provisions dedicated router users."
+  value = (
+    !var.firewall_enabled || length(var.trusted_mgmt_sources) > 0
+    ? "ssh ${local.router_bootstrap_user}@${local.wan_ip}"
+    : "ssh -p ${var.control_ssh_wan_port} ${var.cluster_user}@${local.wan_ip}  =>  then on control: ssh vyos   (router WAN SSH is firewalled off; set trusted_mgmt_sources to open it)"
+  )
 }
 
 output "ssh_to_control" {

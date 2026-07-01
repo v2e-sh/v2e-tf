@@ -11,7 +11,7 @@
 # net0 (vmbr0) -> ${wan_iface} = WAN ; net1 (vmbr1 trunk) -> ${lan_iface} = LAN VLANs.
 
 %{ if password_hash != "" ~}
-password: ${password_hash}
+password: ${jsonencode(password_hash)}
 %{ endif ~}
 %{ if length(admin_keys) > 0 ~}
 ssh_authorized_keys:
@@ -105,7 +105,3 @@ vyos_config_commands:
   - set firewall ipv4 forward filter rule 31 destination address '${agent_subnet}'
   - set firewall ipv4 forward filter rule 31 action 'accept'
 %{ endif ~}
-
-%{ for cmd in extra_config_commands ~}
-  - ${cmd}
-%{ endfor ~}
