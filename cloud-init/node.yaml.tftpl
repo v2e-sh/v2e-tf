@@ -38,13 +38,6 @@ chpasswd:
 ssh_pwauth: false
 disable_root: true
 write_files:
-  - path: /etc/ssh/sshd_config.d/60-v2e.conf
-    permissions: '0644'
-    content: |
-      PermitRootLogin no
-      PasswordAuthentication no
-      KbdInteractiveAuthentication no
-      AllowUsers ${ssh_allow_users}
 %{ if has_hub ~}
 %{ for u in node_users ~}
 %{ if u.is_hub ~}

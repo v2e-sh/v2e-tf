@@ -7,7 +7,6 @@ locals {
     hostname        = k
     node_users      = local.node_users[k]
     has_hub         = local.node_has_hub[k]
-    ssh_allow_users = k == "control" ? var.cluster_user : "${var.cluster_user} ${var.ansible_user}"
     package_upgrade = var.package_upgrade
     # Cloudflare tunnel connector token — only the control node gets it, and only
     # when the tunnel is enabled. "" renders the cloud-init identically to before.
