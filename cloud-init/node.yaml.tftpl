@@ -122,9 +122,10 @@ bootcmd:
 %{ endif ~}
 package_update: true
 package_upgrade: ${package_upgrade}
-# Reboot after the first-boot upgrade only if a new kernel/libc requires it.
-# This runs before runcmd, so the Ansible bootstrap sees a patched system.
-package_reboot_if_required: true
+# Never reboot during first boot: a mid-apply reboot can drop the guest agent and
+# hang `tofu apply` on the node. Ansible owns reboots (Q2). package_upgrade is off
+# by default anyway, so there's normally nothing to reboot for here.
+package_reboot_if_required: false
 packages:
   - qemu-guest-agent
 %{ if cloudflared_token != "" ~}

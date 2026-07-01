@@ -70,7 +70,10 @@ vyos_config_commands:
   - set firewall ipv4 input filter rule 10 protocol 'tcp'
   - set firewall ipv4 input filter rule 10 destination port '22'
   - set firewall ipv4 input filter rule 10 action 'accept'
-  - set firewall ipv4 input filter rule 20 description 'ICMP to router'
+  # ICMP to the router is accepted only from the LAN subnets — the router does
+  # NOT answer ICMP arriving on the WAN (no ping-back to the internet side).
+  - set firewall ipv4 input filter rule 20 description 'ICMP to router (LAN only)'
+  - set firewall ipv4 input filter rule 20 source address '${lan_supernet}'
   - set firewall ipv4 input filter rule 20 protocol 'icmp'
   - set firewall ipv4 input filter rule 20 action 'accept'
 %{ if length(trusted_mgmt_sources) > 0 ~}
@@ -92,10 +95,50 @@ vyos_config_commands:
   - set firewall ipv4 forward filter rule 10 destination port '22'
   - set firewall ipv4 forward filter rule 10 protocol 'tcp'
   - set firewall ipv4 forward filter rule 10 action 'accept'
-  - set firewall ipv4 forward filter rule 20 description 'LAN -> internet'
-  - set firewall ipv4 forward filter rule 20 source address '${lan_supernet}'
+  # Internet egress — control + services are open...
+  - set firewall ipv4 forward filter rule 20 description 'control -> internet'
+  - set firewall ipv4 forward filter rule 20 source address '${control_subnet}'
   - set firewall ipv4 forward filter rule 20 outbound-interface name '${wan_iface}'
   - set firewall ipv4 forward filter rule 20 action 'accept'
+  - set firewall ipv4 forward filter rule 21 description 'services -> internet'
+  - set firewall ipv4 forward filter rule 21 source address '${services_subnet}'
+  - set firewall ipv4 forward filter rule 21 outbound-interface name '${wan_iface}'
+  - set firewall ipv4 forward filter rule 21 action 'accept'
+%{ if agent_egress_restricted ~}
+  # ...the agent (AI) node is deny-by-default: only DNS (to name_servers), NTP, and
+  # the allowlisted TCP ports leave the box; all other agent egress is dropped.
+%{ for ns in name_servers ~}
+  - set firewall group address-group AGENT-DNS address '${ns}'
+%{ endfor ~}
+%{ for port in agent_egress_allow_tcp_ports ~}
+  - set firewall group port-group AGENT-EGRESS-TCP port '${port}'
+%{ endfor ~}
+  - set firewall ipv4 forward filter rule 25 description 'agent -> DNS (allowlist)'
+  - set firewall ipv4 forward filter rule 25 source address '${agent_subnet}'
+  - set firewall ipv4 forward filter rule 25 outbound-interface name '${wan_iface}'
+  - set firewall ipv4 forward filter rule 25 destination group address-group 'AGENT-DNS'
+  - set firewall ipv4 forward filter rule 25 destination port '53'
+  - set firewall ipv4 forward filter rule 25 protocol 'tcp_udp'
+  - set firewall ipv4 forward filter rule 25 action 'accept'
+  - set firewall ipv4 forward filter rule 26 description 'agent -> NTP (allowlist)'
+  - set firewall ipv4 forward filter rule 26 source address '${agent_subnet}'
+  - set firewall ipv4 forward filter rule 26 outbound-interface name '${wan_iface}'
+  - set firewall ipv4 forward filter rule 26 destination port '123'
+  - set firewall ipv4 forward filter rule 26 protocol 'udp'
+  - set firewall ipv4 forward filter rule 26 action 'accept'
+  - set firewall ipv4 forward filter rule 27 description 'agent -> allowlisted TCP'
+  - set firewall ipv4 forward filter rule 27 source address '${agent_subnet}'
+  - set firewall ipv4 forward filter rule 27 outbound-interface name '${wan_iface}'
+  - set firewall ipv4 forward filter rule 27 protocol 'tcp'
+  - set firewall ipv4 forward filter rule 27 destination group port-group 'AGENT-EGRESS-TCP'
+  - set firewall ipv4 forward filter rule 27 action 'accept'
+%{ else ~}
+  # agent egress unrestricted (agent_egress_restricted = false) — open like the rest.
+  - set firewall ipv4 forward filter rule 25 description 'agent -> internet'
+  - set firewall ipv4 forward filter rule 25 source address '${agent_subnet}'
+  - set firewall ipv4 forward filter rule 25 outbound-interface name '${wan_iface}'
+  - set firewall ipv4 forward filter rule 25 action 'accept'
+%{ endif ~}
   - set firewall ipv4 forward filter rule 30 description 'control -> services'
   - set firewall ipv4 forward filter rule 30 source address '${control_subnet}'
   - set firewall ipv4 forward filter rule 30 destination address '${services_subnet}'
