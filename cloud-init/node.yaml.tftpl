@@ -108,25 +108,16 @@ write_files:
 %{ endif ~}
 
 %{ if cloudflared_token != "" ~}
-# Cloudflare connector repo setup (control node). Runs in the init stage, before
-# the package stage below, so cloud-init's own lock-managed apt installs
-# cloudflared — sidestepping the apt-daily / unattended-upgrades lock race.
-# The repo uses cloudflare's distro-agnostic 'any' suite (not the guest codename):
-# control is a ParrotOS workstation whose codename ('echo') cloudflare doesn't publish,
-# so $${VERSION_CODENAME} would 404 and break apt-get update. 'any' serves the static
-# cloudflared binary for every distro, and overwrites the codename-stamped
-# cloudflared.list the Parrot image ships.
-#
-# The keyring fetch WAITS (bounded) for real connectivity: NetworkManager on the Parrot
-# desktop activates eth0 a few seconds AFTER cloud-init's network stage begins, so a
-# fixed short retry races ahead and leaves apt with an unsigned repo — Debian 13's sqv
-# verifier then hard-fails apt-get update and the whole package stage cascades. Retry
-# until the key actually downloads (breaks immediately once eth0 is up).
+# The ParrotOS control image ships a cloudflared apt source stamped with its own codename
+# ('echo'), which cloudflare doesn't publish and which has no matching keyring. Left in
+# place it makes apt-get update fail (Debian 13's sqv rejects the unsigned repo) and takes
+# the whole package stage — and the baseline/hardening that follows — down with it. Strip
+# any keyring-less cloudflared source before the package stage. The tunnel connector is an
+# OPTIONAL remote-SSH convenience (the router DNAT already gives SSH to control), so it is
+# set up separately, best-effort, in runcmd below — after the network is fully up — and its
+# good keyring-backed source survives reboots (the guard below only fires when unsigned).
 bootcmd:
-  - mkdir -p --mode=0755 /usr/share/keyrings
-  - |
-    [ -f /usr/share/keyrings/cloudflare-main.gpg ] || for i in $(seq 1 30); do curl -fsSL --max-time 10 https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg && break; sleep 3; done
-  - echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" > /etc/apt/sources.list.d/cloudflared.list
+  - '[ -s /usr/share/keyrings/cloudflare-main.gpg ] || rm -f /etc/apt/sources.list.d/cloudflared.list'
 %{ endif ~}
 package_update: true
 package_upgrade: ${package_upgrade}
@@ -136,9 +127,6 @@ package_upgrade: ${package_upgrade}
 package_reboot_if_required: false
 packages:
   - qemu-guest-agent
-%{ if cloudflared_token != "" ~}
-  - cloudflared
-%{ endif ~}
 %{ if ansible_repo_url != "" ~}
   - git
   - pipx
@@ -154,12 +142,21 @@ runcmd:
 %{ endif ~}
 %{ endfor ~}
 %{ if cloudflared_token != "" ~}
-  # cloudflared is installed by the package stage above (cloud-init owns the apt
-  # lock, avoiding the apt-daily race). Here we only register + start the
-  # connector with the run token so the tunnel is live at first boot. The unit
-  # embeds the token, hence chmod 600. Omitted when token is "" (CF disabled).
-  - cloudflared service install ${cloudflared_token}
-  - chmod 600 /etc/systemd/system/cloudflared.service
+  # Optional Cloudflare tunnel connector — a convenience key-auth SSH path to control,
+  # redundant with the router DNAT. Set up here (network is up by runcmd) and WHOLLY
+  # best-effort: the apt source is written only after its keyring is fetched, and the
+  # entire block is `|| true`, so a slow first-boot network or a cloudflare hiccup can
+  # never leave an unsigned source or fail cloud-init / the Ansible bootstrap that follows.
+  # cloudflared is a static binary, so the distro-agnostic 'any' suite serves it on Parrot
+  # (whose 'echo' codename cloudflare doesn't publish). The unit embeds the token (chmod 600).
+  - |
+    { mkdir -p --mode=0755 /usr/share/keyrings &&
+      curl -fsSL --retry 5 --retry-connrefused --max-time 20 -o /usr/share/keyrings/cloudflare-main.gpg https://pkg.cloudflare.com/cloudflare-main.gpg &&
+      echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" > /etc/apt/sources.list.d/cloudflared.list &&
+      apt-get -o DPkg::Lock::Timeout=300 update &&
+      apt-get -o DPkg::Lock::Timeout=300 install -y cloudflared &&
+      cloudflared service install ${cloudflared_token} &&
+      chmod 600 /etc/systemd/system/cloudflared.service; } || true
 %{ endif ~}
 %{ if ansible_repo_url != "" ~}
   # Ansible bootstrap (control = mesh hub). Install Ansible for the ${ansible_user}
