@@ -23,3 +23,13 @@ terraform.rc
 
 # macOS
 .DS_Store
+
+# Local secrets — NEVER commit. age private keys decrypt every SOPS secret.
+keys.txt
+keys-backup.txt
+keys*.txt
+.deploy-creds.txt
+# SOPS file is encrypted (safe) but follow the "supply your own locally" model
+secrets.sops.yaml
+# Build/apply logs
+*.log
