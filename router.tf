@@ -34,6 +34,8 @@ locals {
     control_subnet               = "${var.network_prefix}.${local.subnets.control.octet}.0/${var.subnet_mask}"
     services_subnet              = "${var.network_prefix}.${local.subnets.services.octet}.0/${var.subnet_mask}"
     agent_subnet                 = "${var.network_prefix}.${local.subnets.agent.octet}.0/${var.subnet_mask}"
+    infra_subnet                 = "${var.network_prefix}.${local.subnets.mgmt.octet}.0/${var.subnet_mask}"
+    infra_ip                     = local.node_ip["infra"]
 
     port_forwards = [
       {
