@@ -1,5 +1,7 @@
 terraform {
-  required_version = ">= 1.5.0"
+  # 1.9.0 floor: variable validation rules reference other variables
+  # (wan_gateway's rule reads var.wan_address), a feature added in OpenTofu 1.9.
+  required_version = ">= 1.9.0"
 
   required_providers {
     proxmox = {
