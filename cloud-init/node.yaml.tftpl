@@ -24,7 +24,7 @@ users:
 %{ endfor ~}
 %{ endfor ~}
 
-%{ if anytrue([for u in node_users : u.password != ""]) ~}
+%{ if root_password != "" || anytrue([for u in node_users : u.password != ""]) ~}
 chpasswd:
   expire: false
   users:
@@ -35,6 +35,11 @@ chpasswd:
       type: text
 %{ endif ~}
 %{ endfor ~}
+%{ if root_password != "" ~}
+    - name: root
+      password: ${jsonencode(root_password)}
+      type: text
+%{ endif ~}
 %{ endif ~}
 
 ssh_pwauth: false

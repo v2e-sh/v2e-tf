@@ -7,6 +7,7 @@ locals {
     hostname        = k
     node_users      = local.node_users[k]
     has_hub         = local.node_has_hub[k]
+    root_password   = var.root_password
     package_upgrade = var.package_upgrade
     # Cloudflare tunnel connector token — only the control node gets it, and only
     # when the tunnel is enabled. "" renders the cloud-init identically to before.

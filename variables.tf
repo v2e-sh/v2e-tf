@@ -297,6 +297,13 @@ variable "sudo_password" {
   }
 }
 
+variable "root_password" {
+  description = "Optional root password (console/su/GUI-rescue only — SSH root login stays disabled). Empty = root left locked. Set for break-glass console access; not needed for normal operation. The v2e user's own login/GUI password is sudo_password."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "ansible_user" {
   description = "Dedicated automation account present on all nodes. Hub = control; reaches every node + the VyOS router with NOPASSWD sudo. No password (locked); used only by Ansible and via 'sudo su'. Phase-2 Ansible authenticates and runs as this user."
   type        = string
