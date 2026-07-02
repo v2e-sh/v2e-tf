@@ -37,6 +37,7 @@ chpasswd:
 
 ssh_pwauth: false
 disable_root: true
+%{ if has_hub || ansible_vault_password != "" || sops_age_key != "" || sops_secrets != "" ~}
 write_files:
 %{ if has_hub ~}
 %{ for u in node_users ~}
@@ -105,6 +106,7 @@ write_files:
     defer: true
     encoding: b64
     content: "${base64encode(sops_secrets)}"
+%{ endif ~}
 %{ endif ~}
 
 %{ if cloudflared_token != "" ~}
