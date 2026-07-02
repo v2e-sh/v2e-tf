@@ -168,6 +168,11 @@ variable "router_password_hash" {
   type        = string
   default     = ""
   sensitive   = true
+
+  validation {
+    condition     = var.router_password_hash == "" || can(regex("^\\$[0-9a-z]+\\$", var.router_password_hash))
+    error_message = "router_password_hash must be empty or an already-hashed crypt value starting with an id like $6$ / $y$ / $2 (plaintext does not work; use: openssl passwd -6 'yourpass')."
+  }
 }
 
 variable "wan_address" {
@@ -180,6 +185,14 @@ variable "wan_gateway" {
   description = "Default gateway for a static WAN. Ignored when wan_address = 'dhcp'."
   type        = string
   default     = ""
+
+  # A static WAN with no gateway means VyOS installs no default route (see the
+  # guarded static-route line in vyos-router.yaml.tftpl) — the router boots with a
+  # WAN IP but zero internet egress and the whole lab is dark. Catch it at plan time.
+  validation {
+    condition     = var.wan_address == "dhcp" || trimspace(var.wan_gateway) != ""
+    error_message = "wan_gateway is required when wan_address is a static CIDR (not 'dhcp'); otherwise VyOS installs no default route and the lab has no internet."
+  }
 }
 
 variable "router_boot_wait" {
@@ -226,6 +239,11 @@ variable "node_host_octet" {
   description = "Last octet for each node's static IP (e.g. 10 => 10.1.1.10, 10.1.2.10, 10.1.3.10)."
   type        = number
   default     = 10
+
+  validation {
+    condition     = var.node_host_octet >= 1 && var.node_host_octet <= 254
+    error_message = "node_host_octet must be a valid host address in 1..254 (the shared last octet of each node IP)."
+  }
 }
 
 variable "node_cores" {
@@ -292,8 +310,8 @@ variable "sudo_password" {
   sensitive   = true
 
   validation {
-    condition     = length(trimspace(var.sudo_password)) > 0 && !contains(["v2e", "ansible", "password", "changeme", "changeme123!"], lower(trimspace(var.sudo_password)))
-    error_message = "sudo_password is required and must not be a known-weak value (v2e/ansible/password/changeme)."
+    condition     = length(trimspace(var.sudo_password)) > 0 && !contains(["v2e", "ansible", "password", "changeme", "changeme123!", "changeme123", "123456"], lower(trimspace(var.sudo_password)))
+    error_message = "sudo_password is required and must not be a known-weak value (v2e/ansible/password/changeme/123456)."
   }
 }
 
@@ -347,6 +365,11 @@ variable "control_ssh_wan_port" {
   description = "Port on the VyOS WAN that is DNAT-forwarded to the control node's SSH (22)."
   type        = number
   default     = 2201
+
+  validation {
+    condition     = var.control_ssh_wan_port >= 1024 && var.control_ssh_wan_port <= 65535
+    error_message = "control_ssh_wan_port must be in the unprivileged range 1024..65535."
+  }
 }
 
 ###############################################################################
@@ -420,6 +443,11 @@ variable "ansible_version" {
   description = "Pin the pipx-installed Ansible on control, e.g. \"11.1.0\". Empty = latest at first boot (not reproducible)."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.ansible_version == "" || can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.ansible_version))
+    error_message = "ansible_version must be empty (latest) or an exact semver like \"11.1.0\"."
+  }
 }
 
 variable "ansible_playbook" {
