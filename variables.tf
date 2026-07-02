@@ -244,6 +244,24 @@ variable "node_disk_size" {
   default     = 20
 }
 
+variable "infra_cores" {
+  description = "vCPU cores for the infra appliance node (Technitium + RustDesk in Docker)."
+  type        = number
+  default     = 2
+}
+
+variable "infra_memory" {
+  description = "Memory (MB) for the infra appliance node. Small: Technitium + RustDesk relay are light."
+  type        = number
+  default     = 2048
+}
+
+variable "infra_disk_size" {
+  description = "Disk size (GB) for the infra node. Must be >= the Debian template disk (20G)."
+  type        = number
+  default     = 20
+}
+
 variable "control_cores" {
   description = "vCPU cores for the control node (ParrotOS workstation)."
   type        = number

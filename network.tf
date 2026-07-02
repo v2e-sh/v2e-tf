@@ -68,6 +68,23 @@ locals {
       disk_size   = var.node_disk_size
       bios        = "seabios"
     }
+    # Infrastructure appliance node: Technitium (internal DNS) + RustDesk relay, in
+    # Docker. Sits on the otherwise-empty mgmt VLAN (100, 10.1.0.0/24) so foundational
+    # DNS/remote-access live in their own failure domain, off the churny services node.
+    # Small on purpose. Reachable by control (mgmt + ansible) and queried on :53 by the
+    # lab; its own internet egress is open (image/updates). See firewall rules below.
+    infra = {
+      vm_id       = var.node_vmid_base + 4
+      template_id = var.debian_template_id
+      octet       = 0
+      vlan        = 100
+      role        = "member"
+      os          = "debian"
+      cores       = var.infra_cores
+      memory      = var.infra_memory
+      disk_size   = var.infra_disk_size
+      bios        = "seabios"
+    }
   }
 
   node_ip      = { for k, n in local.nodes : k => "${var.network_prefix}.${n.octet}.${var.node_host_octet}" }
