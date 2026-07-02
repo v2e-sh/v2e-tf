@@ -9,7 +9,9 @@ manage_etc_hosts: true
 preserve_hostname: false
 
 users:
-  - default
+  # No `- default`: we don't want the distro default account (debian/ubuntu) — the only
+  # logins are the explicit mesh users below (v2e + ansible). Their keys/sudo are fully
+  # specified here, so nothing relies on cloud-init's default user.
 %{ for u in node_users ~}
   - name: ${u.name}
     groups: [sudo]
