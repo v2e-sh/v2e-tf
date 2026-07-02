@@ -9,7 +9,9 @@ manage_etc_hosts: true
 preserve_hostname: false
 
 users:
-  - default
+  # No `- default`: we don't want the distro default account (debian/ubuntu) — the only
+  # logins are the explicit mesh users below (v2e + ansible). Their keys/sudo are fully
+  # specified here, so nothing relies on cloud-init's default user.
 %{ for u in node_users ~}
   - name: ${u.name}
     groups: [sudo]
@@ -37,6 +39,7 @@ chpasswd:
 
 ssh_pwauth: false
 disable_root: true
+%{ if has_hub || ansible_vault_password != "" || sops_age_key != "" || sops_secrets != "" ~}
 write_files:
 %{ if has_hub ~}
 %{ for u in node_users ~}
@@ -105,6 +108,7 @@ write_files:
     defer: true
     encoding: b64
     content: "${base64encode(sops_secrets)}"
+%{ endif ~}
 %{ endif ~}
 
 %{ if cloudflared_token != "" ~}
