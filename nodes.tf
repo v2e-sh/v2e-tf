@@ -71,6 +71,17 @@ resource "proxmox_virtual_environment_vm" "node" {
   bios      = each.value.bios
   machine   = each.value.bios == "ovmf" ? "q35" : null
 
+  # The Parrot control node is a DESKTOP workstation, but the template bakes
+  # `--vga serial0` (headless convention for the cloud images) — so the Proxmox
+  # console only showed a serial terminal, never the GUI. Give parrot a real
+  # virtio display; the headless nodes keep the template default.
+  dynamic "vga" {
+    for_each = each.value.os == "parrot" ? [1] : []
+    content {
+      type = "virtio"
+    }
+  }
+
   # Hard-stop (not graceful shutdown) on destroy, so teardown never blocks waiting
   # on the guest agent if it isn't running (a desktop-class guest is the worst case).
   stop_on_destroy = true
