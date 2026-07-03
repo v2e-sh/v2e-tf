@@ -27,6 +27,11 @@ vyos_config_commands:
   - set system name-server '${ns}'
 %{ endfor ~}
   - set service ssh port '22'
+  # Key-only SSH. The three admin keys above are provisioned on the 'vyos' user by
+  # cc_vyos (see admin_keys in router.tf), so this cannot lock anyone out — it just
+  # closes the image-default vyos/vyos password window when router_password_hash is
+  # empty. Ansible bootstraps in as vyos@ by key, so key-based login is unaffected.
+  - set service ssh disable-password-authentication
 
   # ---- WAN (${wan_iface}) ----
   - set interfaces ethernet ${wan_iface} description 'WAN'
