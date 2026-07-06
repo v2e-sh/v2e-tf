@@ -15,9 +15,9 @@ variable "proxmox_api_token" {
 }
 
 variable "proxmox_insecure" {
-  description = "Skip TLS verification (self-signed certs)."
+  description = "Skip Proxmox API TLS verification. Secure by default (false); set true in tfvars only when the PVE host uses a self-signed cert (as this lab does)."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "proxmox_ssh_username" {
