@@ -440,9 +440,9 @@ variable "ansible_repo_ref" {
 }
 
 variable "ansible_version" {
-  description = "Pin the pipx-installed Ansible on control, e.g. \"11.1.0\". Empty = latest at first boot (not reproducible)."
+  description = "Pin the pipx-installed Ansible on control, e.g. \"12.3.0\". Empty = latest at first boot (not reproducible). Default 12.3.0 bundles ansible-core 2.19.5: >= 2.19 keeps allow_broken_conditionals honored (artis3n.tailscale 5.0.1's string `when:`) and < 2.23 keeps that option from being removed. Override with any exact ansible community-package version."
   type        = string
-  default     = ""
+  default     = "12.3.0"
 
   validation {
     condition     = var.ansible_version == "" || can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.ansible_version))
