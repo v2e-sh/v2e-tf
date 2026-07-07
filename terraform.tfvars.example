@@ -89,7 +89,7 @@ cloudflare_account_id = ""
 cloudflare_zone_id    = ""
 
 # Hostname routed to control's sshd (defaults shown; override for your domain).
-tunnel_hostname = "lab.v2e.sh"
+tunnel_hostname = "lab.example.com"
 tunnel_dns_name = "lab"
 # Optional OTP gate on the tunnel hostname (empty = none, key-only SSH):
 # cloudflare_access_emails = ["you@example.com"]
