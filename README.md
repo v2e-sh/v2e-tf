@@ -1,7 +1,7 @@
-# v2e-v3 — segmented lab on Proxmox (VyOS router + 3 nodes)
+# v2e-v3 — segmented lab on Proxmox (VyOS router + 4 nodes)
 
 A VyOS router fronts four VLAN subnets on one LAN bridge (router-on-a-stick),
-with three nodes behind it. Built with Terraform + cloud-init.
+with four nodes behind it. Built with Terraform + cloud-init.
 
 ## Topology
 
@@ -13,20 +13,20 @@ with three nodes behind it. Built with Terraform + cloud-init.
                         │   VyOS router  (created FIRST)
    vmbr1 (trunk) ─ eth1 ┴─ vif 100/101/102/103
                         │
-   VLAN 100  10.1.0.1/24  vyos-mgmt   (router only)
-   VLAN 101  10.1.1.1/24  control  ── control  10.1.1.10  (Ubuntu)
+   VLAN 100  10.1.0.1/24  mgmt     ── infra    10.1.0.10  (Debian: Technitium DNS, RustDesk relay)
+   VLAN 101  10.1.1.1/24  control  ── control  10.1.1.10  (ParrotOS)
    VLAN 102  10.1.2.1/24  services ── services 10.1.2.10  (Ubuntu)
    VLAN 103  10.1.3.1/24  agent    ── agent    10.1.3.10  (Debian)
 ```
 
-- **Router first.** The 3 nodes `depends_on` a `time_sleep` that starts when the
+- **Router first.** The 4 nodes `depends_on` a `time_sleep` that starts when the
   router VM is created, so VyOS is booting/routing before they run cloud-init.
 - **Access:** your mac key is authorized on **`v2e@control`**; VyOS DNATs
   `WAN:2201 -> control:22`, so `ssh -p 2201 v2e@<vyos-wan>`.
 - **Two trust meshes** (each = a user on every node + one ed25519 keypair whose
   private key lives only on the hub node — **control** for both):
   - **`v2e`** — the human admin login. From control: `ssh services` / `ssh agent`
-    reaches `v2e@…`, and `ssh vyos` reaches the router.
+    / `ssh infra` reaches `v2e@…`, and `ssh vyos` reaches the router.
   - **`ansible`** — the dedicated automation account (NOPASSWD sudo). From control
     it reaches every node *and* the router; phase-2 Ansible runs as this user and
     provisions any further system config — app users (e.g. the old `agent`
@@ -37,15 +37,22 @@ with three nodes behind it. Built with Terraform + cloud-init.
   router users is left to phase-2 Ansible.
 - **Internet:** VyOS masquerades `10.1.0.0/16` out eth0. A default-deny firewall
   (`firewall_enabled`, on by default) restricts inter-VLAN traffic to control ->
-  services and control -> agent, plus LAN -> internet egress; the nodes can't
-  reach each other directly.
+  services, control -> agent, and control -> infra, plus infra's own DNS (:53)
+  reachable from services + agent and internet egress for updates; the nodes
+  otherwise can't reach each other directly.
+- **Infra node** (mgmt VLAN 100, `infra` in `local.nodes`): a small Debian VM
+  running Technitium (internal DNS) + a RustDesk relay in Docker, kept on its own
+  failure domain away from the churnier services node. Joins both SSH trust
+  meshes like the other nodes.
 
 ## Prerequisites (one-time, on the Proxmox host)
 
-1. **Templates built** (v2e-packer): VyOS `9000` (hand-built cloud-init image);
-   Ubuntu `ubuntu-2404-pk` → `9001` prod / `9901` staging; Debian `debian-13-pk`
-   → `9002` / `9902`. While a template is still at its staging VMID, set
-   `ubuntu_template_id` / `debian_template_id` to `9901` / `9902` in tfvars.
+1. **Templates built** (`v2e-templates`, host-side `virt-customize` + `qm`, no
+   Packer): VyOS `9000` (hand-built cloud-init image); Ubuntu `9001` prod /
+   `9901` staging; Debian `9002` / `9902`; ParrotOS Home (control workstation)
+   `9003` / `9903`. While a template is still at its staging VMID, set
+   `ubuntu_template_id` / `debian_template_id` / `parrot_template_id` to
+   `9901` / `9902` / `9903` in tfvars.
 2. **Snippets enabled** on `local`:
    ```bash
    pvesm set local --content iso,vztmpl,backup,snippets
