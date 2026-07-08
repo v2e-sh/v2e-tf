@@ -86,29 +86,34 @@ variable "name_servers" {
 ###############################################################################
 # Templates to clone
 #
-# image -> Packer template -> Proxmox VMID chain (built by v2e-packer):
-#   Ubuntu 24.04 cloud image -> ubuntu-2404-pk -> 9001 (prod) / 9901 (staging)
-#   Debian 13   cloud image -> debian-13-pk   -> 9002 (prod) / 9902 (staging)
-# VyOS is still the hand-built cloud-init image at 9000 (not yet Packer-built).
-# Defaults point at the PRODUCTION VMIDs (Packer is being promoted to these).
-# While a template still lives at its staging VMID, override in tfvars:
-#   ubuntu_template_id = 9901 ; debian_template_id = 9902
+# image -> template -> Proxmox VMID chain, built by v2e-templates (host-side
+# virt-customize + qm; no Packer, no build network):
+#   Ubuntu 24.04 cloud image -> 9001 (prod) / 9901 (staging)
+#   Debian 13   cloud image -> 9002 (prod) / 9902 (staging)
+#   ParrotOS Home desktop   -> 9003 (prod) / 9903 (staging)
+# VyOS is a separate hand-built cloud-init image at 9000/9900 (special-cased in
+# v2e-templates, not the virt-customize flow the other three share).
+# Defaults point at the PRODUCTION VMIDs. v2e-templates builds to the staging
+# VMIDs first and promotes (re-points config.env + re-runs make) once verified
+# — see v2e-templates/README.md "Promote staging -> production". While a
+# template still lives at its staging VMID, override in tfvars:
+#   ubuntu_template_id = 9901 ; debian_template_id = 9902 ; parrot_template_id = 9903
 ###############################################################################
 
 variable "vyos_template_id" {
-  description = "VMID of the VyOS template (hand-built cloud-init image; not yet Packer-built)."
+  description = "VMID of the VyOS template (hand-built cloud-init image, special-cased in v2e-templates)."
   type        = number
   default     = 9000
 }
 
 variable "ubuntu_template_id" {
-  description = "VMID of the Ubuntu template for control + services. Packer 'ubuntu-2404-pk' from the Ubuntu 24.04 cloud image. Prod 9001 / staging 9901."
+  description = "VMID of the Ubuntu template for services. Built by v2e-templates from the Ubuntu 24.04 cloud image. Prod 9001 / staging 9901."
   type        = number
   default     = 9001
 }
 
 variable "debian_template_id" {
-  description = "VMID of the Debian template for agent. Packer 'debian-13-pk' from the Debian 13 cloud image. Prod 9002 / staging 9902."
+  description = "VMID of the Debian template for agent + infra. Built by v2e-templates from the Debian 13 cloud image. Prod 9002 / staging 9902."
   type        = number
   default     = 9002
 }
@@ -425,6 +430,8 @@ variable "cloudflare_access_emails" {
 # On by default: the control node (mesh hub) clones the repo on first boot and
 # runs the playbook against the whole mesh over its existing v2e SSH trust.
 # Set ansible_repo_url = "" to disable — apply is then unchanged.
+# ansible_repo_ref is pinned exact (like the provider versions in versions.tf),
+# not left to float on main — see its description for the bump discipline.
 ###############################################################################
 
 variable "ansible_repo_url" {
@@ -434,9 +441,9 @@ variable "ansible_repo_url" {
 }
 
 variable "ansible_repo_ref" {
-  description = "Git branch or tag of ansible_repo_url to check out on control at first boot (git clone --branch). Empty = the repo's default branch (main). Use to deploy a feature branch whose app-stack code isn't on main yet."
+  description = "Git branch, tag, or commit SHA of ansible_repo_url to check out on control at first boot (full clone + git checkout, so any ref type works — not just git-clone-able branches/tags). Defaults to the v2e-ansible commit verified against this v2e-tf revision; bump deliberately (like the pinned provider versions) after testing the new commit end-to-end. Empty = float on the repo's default branch (main) — reproduces the pre-pin behavior, kept only as an explicit opt-out, not the default."
   type        = string
-  default     = ""
+  default     = "9e9bdccf7ec91f743a2325ee94a71bd7074ace45" # v2e-ansible main @ 2026-07-07, "chore: retire AI dev scaffolding (#40)"
 }
 
 variable "ansible_version" {
