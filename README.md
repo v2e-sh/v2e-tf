@@ -1,4 +1,4 @@
-# v2e-v3 — segmented lab on Proxmox (VyOS router + 4 nodes)
+# v2e-tf — segmented lab on Proxmox (VyOS router + 4 nodes)
 
 A VyOS router fronts four VLAN subnets on one LAN bridge (router-on-a-stick),
 with four nodes behind it. Built with Terraform + cloud-init.
@@ -76,16 +76,16 @@ with four nodes behind it. Built with Terraform + cloud-init.
 ## Deploy
 
 ```bash
-cd ~/Documents/v2e-v3
+cd v2e-tf
 cp terraform.tfvars.example terraform.tfvars
 $EDITOR terraform.tfvars        # endpoint, token, workstation_public_key, WAN
 
 terraform init
-terraform plan                  # 1 keypair + router (+snippet) + 3 nodes (+snippets) + time_sleep
+terraform plan                  # 2 keypairs + router (+snippet) + 4 nodes (+snippets) + backup job + time_sleep
 terraform apply
 ```
 
-`apply` creates the router, waits `router_boot_wait` (120s), then the 3 nodes.
+`apply` creates the router, waits `router_boot_wait` (120s), then the 4 nodes.
 
 ## Access after apply
 
@@ -97,6 +97,7 @@ ssh -p 2201 v2e@<vyos-wan>             # -> control node (DNAT WAN:2201 -> contr
 ssh vyos                               # -> VyOS router (bootstrap 'vyos' user)
 ssh services
 ssh agent
+ssh infra
 ```
 
 The router has **no WAN SSH by default** (firewall on, `trusted_mgmt_sources` empty)
@@ -112,10 +113,9 @@ IP to `trusted_mgmt_sources`.
 - **`router_boot_wait`** is a fixed delay, not a health check. Bump it on a slow
   host if nodes come up before VyOS is routing (their apt step would fail; SSH
   access still works since users/keys are set before packages).
-- **agent disabled** on every VM so Terraform never blocks on a guest agent;
-  IPs are static and known. qemu-guest-agent is still installed in the guests.
+- **agent enabled** on the 4 nodes — Terraform waits for qemu-guest-agent to report
+  during `apply`; **disabled on the VyOS router** (its template has no running
+  agent, so Terraform doesn't wait on it). Node IPs are static and known regardless.
 - **VLAN/subnet map** lives in `network.tf` (`locals.subnets`) — change it there.
 - The cluster **private key is embedded** in the control node's cloud-init drive
   (unavoidable for this pattern); treat that VM's disk/snapshots accordingly.
-```
-# v2e-tf
